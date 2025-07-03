@@ -55,28 +55,37 @@ export default function ContractCreation() {
     }))
   }
 
-  const generateContract = async () => {
-    setIsGenerating(true)
-    try {
-      const response = await fetch("/api/generate-contract", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(contractData),
-      })
+// Add this to your existing component - just the generateContract function update:
 
-      if (response.ok) {
-        // Get the HTML content
-        const htmlContent = await response.text()
+const generateContract = async () => {
+  setIsGenerating(true)
+  try {
+    const response = await fetch("/api/generate-contract", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...contractData,
+        templateType: "custody-spanish" // Can be made dynamic later
+      }),
+    })
 
-        // Create a simple PDF using browser's print functionality
-        const printWindow = window.open("", "_blank")
-        if (printWindow) {
-          printWindow.document.write(`
+    if (response.ok) {
+      // Get the filename from response headers
+      const filename = response.headers.get('X-Filename') || 
+        `Contrato_${contractData.companyName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
+      
+      // Get the HTML content
+      const htmlContent = await response.text()
+
+      // Create a proper PDF with correct filename
+      const printWindow = window.open("", "_blank")
+      if (printWindow) {
+        printWindow.document.write(`
           <html>
             <head>
-              <title>Contract - ${contractData.companyName}</title>
+              <title>${filename}</title>
               <style>
                 @media print {
                   body { margin: 0; }
@@ -88,6 +97,7 @@ export default function ContractCreation() {
               ${htmlContent}
               <script>
                 window.onload = function() {
+                  document.title = "${filename}";
                   window.print();
                   setTimeout(() => window.close(), 1000);
                 }
@@ -95,18 +105,18 @@ export default function ContractCreation() {
             </body>
           </html>
         `)
-          printWindow.document.close()
-        }
-      } else {
-        throw new Error("Failed to generate contract")
+        printWindow.document.close()
       }
-    } catch (error) {
-      console.error("Error generating contract:", error)
-      alert("Failed to generate contract. Please try again.")
-    } finally {
-      setIsGenerating(false)
+    } else {
+      throw new Error("Failed to generate contract")
     }
+  } catch (error) {
+    console.error("Error generating contract:", error)
+    alert("Failed to generate contract. Please try again.")
+  } finally {
+    setIsGenerating(false)
   }
+}
 
   const isFormValid = Object.values(contractData).every((value) => value.trim() !== "")
 
