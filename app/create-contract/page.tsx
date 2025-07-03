@@ -1,12 +1,13 @@
-import { redirect } from "next/navigation"
-import { getCurrentUser } from "@/lib/users"
-import ContractCreation from "./ContractCreation"
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import ContractCreation from './ContractCreation'
 
 export default async function CreateContractPage() {
-  const currentUser = await getCurrentUser()
-
-  if (!currentUser) {
-    redirect("/login")
+  const cookieStore = cookies()
+  const session = cookieStore.get('session')
+  
+  if (!session) {
+    redirect('/login')
   }
 
   return <ContractCreation />
