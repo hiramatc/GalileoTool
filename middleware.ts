@@ -41,9 +41,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Check if user is trying to access CR Banks dashboard
+  if (request.nextUrl.pathname === "/cr-banks") {
+    if (!authData) {
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
+    // Allow both admins and regular users to access CR Banks
+    return NextResponse.next()
+  }
+
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ["/", "/admin/:path*", "/us-banks"],
+  matcher: ["/", "/admin/:path*", "/us-banks", "/cr-banks"],
 }
+
