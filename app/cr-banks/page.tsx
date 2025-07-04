@@ -95,17 +95,3 @@ Dashboard: https://v0-new-project-cg1bmbszqsx.vercel.app/cr-banks
 `;
 
 // Return both webhook data and email data
-return [
-  {
-    json: webhookData
-  },
-  {
-    json: {
-      to: 'alberto@galileocapital.io',
-      cc: 'hiram@galileocapital.io',
-      subject: emailSubject,
-      body: emailBody,
-      type: 'email'
-    }
-  }
-];
