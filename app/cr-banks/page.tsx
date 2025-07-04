@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Download, TrendingUp, AlertTriangle } from "lucide-react"
+import { RefreshCw, Download, TrendingUp, AlertTriangle, BarChart3 } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
@@ -25,8 +25,9 @@ interface CRBankingData {
   limitPercentage: number
   alertStatus: string
   updateTime: string
-  transactions: Transaction[]
-  monthlyProgress: Array<{
+  transactions?: Transaction[] // Make optional
+  monthlyProgress?: Array<{
+    // Make optional
     month: string
     amount: number
     projected?: number
@@ -86,6 +87,7 @@ export default function CRBanksDashboard() {
       const result = await response.json()
 
       if (result.success) {
+        console.log("CR Banks data received:", result.data) // Debug log
         setData(result.data)
         setFilteredTransactions(result.data.transactions || [])
       } else {
@@ -103,9 +105,12 @@ export default function CRBanksDashboard() {
     return new Date(dateString)
   }
 
-  // Apply filters
+  // Apply filters (only if transactions exist)
   useEffect(() => {
-    if (!data?.transactions) return
+    if (!data?.transactions) {
+      setFilteredTransactions([])
+      return
+    }
 
     let filtered = data.transactions
 
@@ -151,8 +156,13 @@ export default function CRBanksDashboard() {
     setSelectedYear("all")
   }
 
-  // Export filtered data
+  // Export filtered data (only if transactions exist)
   const exportData = () => {
+    if (!filteredTransactions.length) {
+      alert("No transaction data available to export")
+      return
+    }
+
     const csvContent = [
       ["Date", "Bank", "Account", "Amount", "Description", "Category"],
       ...filteredTransactions.map((t) => [t.date, t.bank, t.account, t.amount.toString(), t.description, t.category]),
@@ -184,24 +194,19 @@ export default function CRBanksDashboard() {
     }
   }
 
-  // Generate projection data for chart
-  const generateChartData = () => {
-    if (!data?.monthlyProgress) return []
+  // Generate simple chart data based on current progress
+  const generateSimpleChartData = () => {
+    if (!data) return []
 
     const currentMonth = new Date().getMonth()
-    const projectedData = [...data.monthlyProgress]
+    const currentYear = new Date().getFullYear()
 
-    // Add projection for remaining months
-    const monthlyAverage = data.yearlyTotal / (currentMonth + 1)
-    for (let i = currentMonth + 1; i < 12; i++) {
-      projectedData.push({
-        month: months[i].substring(0, 3),
-        amount: 0,
-        projected: monthlyAverage * (i + 1),
-      })
-    }
-
-    return projectedData
+    // Create a simple progress chart showing current position vs limit
+    return [
+      { month: "Start", amount: 0, limit: YEARLY_LIMIT },
+      { month: "Current", amount: data.yearlyTotal, limit: YEARLY_LIMIT },
+      { month: "Limit", amount: YEARLY_LIMIT, limit: YEARLY_LIMIT },
+    ]
   }
 
   useEffect(() => {
@@ -338,18 +343,21 @@ export default function CRBanksDashboard() {
           </Card>
         </div>
 
-        {/* Progress Chart */}
+        {/* Progress Chart - Simple version */}
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-8">
           <CardHeader>
-            <CardTitle className="text-white">Yearly Progress & Projection</CardTitle>
+            <CardTitle className="text-white flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Progress Toward $17M Limit
+            </CardTitle>
             <CardDescription className="text-gray-300">
-              Monthly transaction amounts with projection to $17M limit
+              Current position relative to the yearly transaction limit
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] w-full">
+            <div className="h-[200px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={generateChartData()}>
+                <LineChart data={generateSimpleChartData()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
                   <XAxis dataKey="month" stroke="#9CA3AF" fontSize={12} tick={{ fontSize: 12 }} />
                   <YAxis
@@ -361,7 +369,7 @@ export default function CRBanksDashboard() {
                   <Tooltip
                     formatter={(value: number, name: string) => [
                       `$${value.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
-                      name === "amount" ? "Actual" : "Projected",
+                      name === "amount" ? "Current Amount" : "Limit",
                     ]}
                     labelStyle={{ color: "#000" }}
                     contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569" }}
@@ -371,17 +379,17 @@ export default function CRBanksDashboard() {
                     dataKey="amount"
                     stroke="#10B981"
                     strokeWidth={3}
-                    dot={{ fill: "#10B981", strokeWidth: 2, r: 4 }}
-                    name="Actual"
+                    dot={{ fill: "#10B981", strokeWidth: 2, r: 6 }}
+                    name="Current Amount"
                   />
                   <Line
                     type="monotone"
-                    dataKey="projected"
-                    stroke="#F59E0B"
+                    dataKey="limit"
+                    stroke="#EF4444"
                     strokeWidth={2}
                     strokeDasharray="5 5"
-                    dot={false}
-                    name="Projected"
+                    dot={{ fill: "#EF4444", strokeWidth: 2, r: 4 }}
+                    name="$17M Limit"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -389,140 +397,205 @@ export default function CRBanksDashboard() {
           </CardContent>
         </Card>
 
-        {/* Filters */}
+        {/* Data Status Card */}
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-6">
           <CardHeader>
-            <CardTitle className="text-white">Transaction Filters</CardTitle>
+            <CardTitle className="text-white">Data Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              {/* Date Range Filter */}
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Date Range</label>
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="Select date range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Dates</SelectItem>
-                    <SelectItem value="last7days">Last 7 Days</SelectItem>
-                    <SelectItem value="last30days">Last 30 Days</SelectItem>
-                    <SelectItem value="last90days">Last 90 Days</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-green-900/20 border border-green-600/30 rounded-lg p-4">
+                <h4 className="text-green-400 font-semibold mb-2">✅ Summary Data Available</h4>
+                <p className="text-sm text-slate-300">
+                  Total transactions, yearly total, percentage, and alert status are being tracked successfully.
+                </p>
               </div>
 
-              {/* Month Filter */}
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Month</label>
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="All Months" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Months</SelectItem>
-                    {months.map((month) => (
-                      <SelectItem key={month} value={month}>
-                        {month}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Year Filter */}
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Year</label>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="All Years" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Years</SelectItem>
-                    {years.map((year) => (
-                      <SelectItem key={year} value={year}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4">
+                <h4 className="text-amber-400 font-semibold mb-2">⚠️ Detailed Data Pending</h4>
+                <p className="text-sm text-slate-300">
+                  Individual transaction records and monthly breakdowns will appear here when your n8n workflow sends
+                  them.
+                </p>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <Button
-                onClick={clearFilters}
-                variant="outline"
-                className="border-white/20 text-white hover:bg-white/10 bg-transparent"
-              >
-                Clear Filters
-              </Button>
+            <div className="mt-4 flex gap-3">
               <Button onClick={fetchData} className="bg-green-600 hover:bg-green-700">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh Data
               </Button>
-              <Button onClick={exportData} className="bg-blue-600 hover:bg-blue-700">
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
+              <Button
+                onClick={() => console.log("Current data:", data)}
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/10 bg-transparent"
+              >
+                Debug Data
               </Button>
+            </div>
+
+            <div className="mt-4 bg-slate-700/30 rounded-lg p-4">
+              <h4 className="text-slate-300 font-semibold mb-2">Last Update:</h4>
+              <p className="text-slate-400 text-sm font-mono">
+                {data.updateTime ? new Date(data.updateTime).toLocaleString() : "No timestamp available"}
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Transactions Table */}
-        <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-          <CardHeader>
-            <CardTitle className="text-white">
-              Transactions ({filteredTransactions.length} of {data.totalTransactions})
-            </CardTitle>
-            <CardDescription className="text-gray-300">
-              Last updated: {new Date(data.updateTime).toLocaleString()}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-white/20">
-                    <TableHead className="text-gray-300">Date</TableHead>
-                    <TableHead className="text-gray-300">Bank</TableHead>
-                    <TableHead className="text-gray-300">Account</TableHead>
-                    <TableHead className="text-gray-300">Category</TableHead>
-                    <TableHead className="text-gray-300 text-right">Amount</TableHead>
-                    <TableHead className="text-gray-300">Description</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTransactions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-gray-400 py-8">
-                        No transactions match your current filters
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredTransactions.map((transaction, index) => (
-                      <TableRow key={index} className="border-white/10">
-                        <TableCell className="text-white">{transaction.date}</TableCell>
-                        <TableCell className="text-white">{transaction.bank}</TableCell>
-                        <TableCell className="text-white">{transaction.account}</TableCell>
-                        <TableCell className="text-white">
-                          <Badge variant="outline" className="border-white/20 text-white">
-                            {transaction.category}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium text-green-400">
-                          ${transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-gray-300 max-w-xs truncate">{transaction.description}</TableCell>
+        {/* Transactions Section - Only show if data exists */}
+        {data.transactions && data.transactions.length > 0 ? (
+          <>
+            {/* Filters */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-6">
+              <CardHeader>
+                <CardTitle className="text-white">Transaction Filters</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  {/* Date Range Filter */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-2 block">Date Range</label>
+                    <Select value={dateFilter} onValueChange={setDateFilter}>
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                        <SelectValue placeholder="Select date range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Dates</SelectItem>
+                        <SelectItem value="last7days">Last 7 Days</SelectItem>
+                        <SelectItem value="last30days">Last 30 Days</SelectItem>
+                        <SelectItem value="last90days">Last 90 Days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Month Filter */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-2 block">Month</label>
+                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                        <SelectValue placeholder="All Months" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Months</SelectItem>
+                        {months.map((month) => (
+                          <SelectItem key={month} value={month}>
+                            {month}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Year Filter */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-2 block">Year</label>
+                    <Select value={selectedYear} onValueChange={setSelectedYear}>
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                        <SelectValue placeholder="All Years" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Years</SelectItem>
+                        {years.map((year) => (
+                          <SelectItem key={year} value={year}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button
+                    onClick={clearFilters}
+                    variant="outline"
+                    className="border-white/20 text-white hover:bg-white/10 bg-transparent"
+                  >
+                    Clear Filters
+                  </Button>
+                  <Button onClick={exportData} className="bg-blue-600 hover:bg-blue-700">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Transactions Table */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white">
+                  Transactions ({filteredTransactions.length} of {data.totalTransactions})
+                </CardTitle>
+                <CardDescription className="text-gray-300">
+                  Last updated: {new Date(data.updateTime).toLocaleString()}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-white/20">
+                        <TableHead className="text-gray-300">Date</TableHead>
+                        <TableHead className="text-gray-300">Bank</TableHead>
+                        <TableHead className="text-gray-300">Account</TableHead>
+                        <TableHead className="text-gray-300">Category</TableHead>
+                        <TableHead className="text-gray-300 text-right">Amount</TableHead>
+                        <TableHead className="text-gray-300">Description</TableHead>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredTransactions.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-gray-400 py-8">
+                            No transactions match your current filters
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredTransactions.map((transaction, index) => (
+                          <TableRow key={index} className="border-white/10">
+                            <TableCell className="text-white">{transaction.date}</TableCell>
+                            <TableCell className="text-white">{transaction.bank}</TableCell>
+                            <TableCell className="text-white">{transaction.account}</TableCell>
+                            <TableCell className="text-white">
+                              <Badge variant="outline" className="border-white/20 text-white">
+                                {transaction.category}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-green-400">
+                              ${transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="text-gray-300 max-w-xs truncate">{transaction.description}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+            <CardHeader>
+              <CardTitle className="text-white">Individual Transactions</CardTitle>
+              <CardDescription className="text-gray-300">
+                Detailed transaction records will appear here when available
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12 text-slate-400">
+                <BarChart3 className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-mono">No individual transaction data available yet</p>
+                <p className="text-sm mt-2">
+                  Your n8n workflow needs to send a "transactions" array for detailed records to appear here.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
