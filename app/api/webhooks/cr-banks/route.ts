@@ -46,6 +46,71 @@ function isToday(date: Date): boolean {
   return date.toDateString() === today.toDateString()
 }
 
+// Helper function to get month name
+function getMonthName(date: Date): string {
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ]
+  return months[date.getMonth()]
+}
+
+// Calculate projection based on current data
+function calculateProjection(transactions: CRTransaction[]): {
+  projectedYearEnd: number
+  projectedLimitDate: string | null
+  monthlyAverage: number
+} {
+  const currentYear = new Date().getFullYear()
+  const currentMonth = new Date().getMonth() + 1 // 1-based month
+  
+  // Filter transactions for current year
+  const yearTransactions = transactions.filter(t => {
+    const txDate = parseDate(t.date)
+    return txDate.getFullYear() === currentYear
+  })
+  
+  if (yearTransactions.length === 0) {
+    return {
+      projectedYearEnd: 0,
+      projectedLimitDate: null,
+      monthlyAverage: 0
+    }
+  }
+  
+  // Calculate total amount so far this year
+  const totalSoFar = yearTransactions.reduce((sum, t) => sum + t.amount, 0)
+  
+  // Calculate monthly average
+  const monthlyAverage = totalSoFar / currentMonth
+  
+  // Project for full year
+  const projectedYearEnd = monthlyAverage * 12
+  
+  // Calculate when we might hit the $17M limit
+  let projectedLimitDate = null
+  const YEARLY_LIMIT = 17000000
+  
+  if (monthlyAverage > 0 && projectedYearEnd > YEARLY_LIMIT) {
+    const monthsToLimit = YEARLY_LIMIT / monthlyAverage
+    const limitMonth = Math.ceil(monthsToLimit)
+    
+    if (limitMonth <= 12) {
+      const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ]
+      projectedLimitDate = `${months[limitMonth - 1]} ${currentYear}`
+    }
+  }
+  
+  return {
+    projectedYearEnd,
+    projectedLimitDate,
+    monthlyAverage
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('CR Banks webhook called')
@@ -53,13 +118,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('Received CR data:', body)
 
-    // Handle the simple format from your working code
-    let rawData = body
-    
-    // If it's wrapped in an array, unwrap it
-    if (Array.isArray(body) && body.length > 0) {
-      rawData = body
-    }
+    // Handle both direct array and nested data structure
+    const rawData = Array.isArray(body) ? body : (body.data || body.processedData || [])
     
     if (!Array.isArray(rawData)) {
       console.error('Invalid data format received:', body)
@@ -71,13 +131,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`Processing ${rawData.length} CR transactions`)
 
-    // Process the CR data from your simple format
+    // Process the CR data
     const processedData: CRTransaction[] = rawData.map((row: any) => {
-      // Handle your simple format
-      const transactionNumber = row['Número de transacción'] || ''
-      const issuer = row['Emisor'] || 'Unknown'
-      const amount = parseFloat(row['Monto de ingreso (en USD)'] || '0')
-      const dateStr = row['Fecha'] || ''
+      // Handle CR data format: Número de transacción, Emisor, Monto de Ingreso (USD), Fecha
+      const transactionNumber = row['Número de transacción'] || row.transactionNumber || row['Transaction Number'] || ''
+      const issuer = row['Emisor'] || row.issuer || row['Issuer'] || ''
+      const amount = parseFloat(row['Monto de Ingreso (USD)'] || row.amount || row['Amount'] || '0')
+      const dateStr = row['Fecha'] || row.date || row['Date'] || ''
       
       const date = parseDate(dateStr)
       
@@ -103,9 +163,13 @@ export async function POST(request: NextRequest) {
     const todayTransactionCount = todayTransactions.length
     const todayAmount = todayTransactions.reduce((sum, t) => sum + t.amount, 0)
 
-    // Current month transactions (simplified - using all for now)
-    const monthTotal = totalAmount
-    
+    // Current month transactions
+    const monthTransactions = processedData.filter(t => {
+      const txDate = parseDate(t.date)
+      return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear
+    })
+    const monthTotal = monthTransactions.reduce((sum, t) => sum + t.amount, 0)
+
     // Available issuers
     const availableIssuers = [...new Set(processedData.map(t => t.issuer))].sort()
 
@@ -114,24 +178,8 @@ export async function POST(request: NextRequest) {
     const remainingLimit = Math.max(0, YEARLY_LIMIT - totalAmount)
     const limitPercentage = (totalAmount / YEARLY_LIMIT) * 100
 
-    // Simple projections
-    const currentMonthNumber = today.getMonth() + 1
-    const monthlyAverage = totalAmount / currentMonthNumber
-    const projectedYearEnd = monthlyAverage * 12
-    
-    let projectedLimitDate = null
-    if (monthlyAverage > 0 && projectedYearEnd > YEARLY_LIMIT) {
-      const monthsToLimit = YEARLY_LIMIT / monthlyAverage
-      const limitMonth = Math.ceil(monthsToLimit)
-      
-      if (limitMonth <= 12) {
-        const monthNames = [
-          'January', 'February', 'March', 'April', 'May', 'June',
-          'July', 'August', 'September', 'October', 'November', 'December'
-        ]
-        projectedLimitDate = `${monthNames[limitMonth - 1]} ${currentYear}`
-      }
-    }
+    // Calculate projections
+    const { projectedYearEnd, projectedLimitDate, monthlyAverage } = calculateProjection(processedData)
 
     // Create the data structure
     crBankingData = {
@@ -142,7 +190,7 @@ export async function POST(request: NextRequest) {
       todayTransactionCount,
       todayAmount,
       monthTotal,
-      month: today.toLocaleString('default', { month: 'long', year: 'numeric' }),
+      month: `${getMonthName(today)} ${currentYear}`,
       todayDate: today.toISOString().split('T')[0],
       updateTime: today.toISOString(),
       availableIssuers,
@@ -156,7 +204,7 @@ export async function POST(request: NextRequest) {
 
     console.log('CR Banking data processed successfully:', {
       totalTransactions,
-      totalAmount: `${totalAmount.toLocaleString()}`,
+      totalAmount: `$${totalAmount.toLocaleString()}`,
       limitPercentage: `${limitPercentage.toFixed(1)}%`,
       projectedLimitDate
     })
