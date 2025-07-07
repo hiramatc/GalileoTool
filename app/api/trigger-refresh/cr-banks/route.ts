@@ -2,27 +2,11 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("CR Banks refresh triggered")
+    console.log("Triggering CR Banks refresh...")
 
-    // Get the n8n webhook URL from environment variables
-    const n8nWebhookUrl = process.env.N8N_CR_BANKS_WEBHOOK_URL
+    // Call your n8n webhook to trigger the workflow
+    const n8nWebhookUrl = "https://hiramtc.app.n8n.cloud/webhook/cr-banks-trigger"
 
-    console.log("N8N_CR_BANKS_WEBHOOK_URL:", n8nWebhookUrl ? "Set" : "Not set")
-
-    if (!n8nWebhookUrl) {
-      console.error("n8n webhook URL not configured")
-      return NextResponse.json(
-        {
-          success: false,
-          message: "n8n webhook URL not configured. Please set N8N_CR_BANKS_WEBHOOK_URL environment variable.",
-        },
-        { status: 500 },
-      )
-    }
-
-    console.log("Triggering n8n workflow at:", n8nWebhookUrl)
-
-    // Trigger the n8n workflow
     const response = await fetch(n8nWebhookUrl, {
       method: "POST",
       headers: {
@@ -31,34 +15,32 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         trigger: "manual_refresh",
         timestamp: new Date().toISOString(),
-        source: "dashboard_refresh",
+        source: "dashboard_refresh_button",
       }),
     })
 
-    console.log("n8n response status:", response.status)
-
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error("n8n workflow failed:", response.status, errorText)
-      throw new Error(`n8n workflow failed: ${response.status} - ${errorText}`)
+      throw new Error(`n8n webhook failed: ${response.status} ${response.statusText}`)
     }
 
-    const responseData = await response.text()
-    console.log("n8n response:", responseData)
+    const result = await response.text()
+    console.log("n8n webhook response:", result)
 
     return NextResponse.json({
       success: true,
-      message: "CR Banks data refresh triggered successfully",
+      message: "CR Banks refresh triggered successfully",
       timestamp: new Date().toISOString(),
-      n8nResponse: responseData,
+      webhookResponse: result,
     })
   } catch (error) {
     console.error("Error triggering CR Banks refresh:", error)
+
     return NextResponse.json(
       {
         success: false,
-        message: "Failed to trigger data refresh",
+        message: "Failed to trigger CR Banks refresh",
         error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
       },
       { status: 500 },
     )
