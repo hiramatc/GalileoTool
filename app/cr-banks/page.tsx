@@ -48,8 +48,7 @@ export default function CRBanksDashboard() {
 
   // Simplified filter states
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedIssuer, setSelectedIssuer] = useState<string>("all")
-  const [dateFilter, setDateFilter] = useState<string>("all")
+  const [dateFilter, setDateFilter] = useState<string>("last15days")
   const [showCurrentYearOnly, setShowCurrentYearOnly] = useState(false)
 
   // Check if user is admin
@@ -147,11 +146,6 @@ export default function CRBanksDashboard() {
       )
     }
 
-    // Issuer filter
-    if (selectedIssuer !== "all") {
-      filtered = filtered.filter((t) => t.issuer === selectedIssuer)
-    }
-
     // Current year filter
     if (showCurrentYearOnly) {
       filtered = filtered.filter((t) => t.isCurrentYear)
@@ -168,6 +162,10 @@ export default function CRBanksDashboard() {
           const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
           filtered = filtered.filter((t) => parseDate(t.date) >= sevenDaysAgo)
           break
+        case "last15days":
+          const fifteenDaysAgo = new Date(today.getTime() - 15 * 24 * 60 * 60 * 1000)
+          filtered = filtered.filter((t) => parseDate(t.date) >= fifteenDaysAgo)
+          break
         case "last30days":
           const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
           filtered = filtered.filter((t) => parseDate(t.date) >= thirtyDaysAgo)
@@ -182,13 +180,12 @@ export default function CRBanksDashboard() {
     filtered.sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime())
 
     setFilteredTransactions(filtered)
-  }, [data, searchTerm, selectedIssuer, dateFilter, showCurrentYearOnly])
+  }, [data, searchTerm, dateFilter, showCurrentYearOnly])
 
   // Clear filters
   const clearFilters = () => {
     setSearchTerm("")
-    setSelectedIssuer("all")
-    setDateFilter("all")
+    setDateFilter("last15days")
     setShowCurrentYearOnly(false)
   }
 
@@ -240,14 +237,17 @@ export default function CRBanksDashboard() {
       const monthData = data.monthlyTotals[monthKey]
       const monthAmount = monthData ? monthData.total : 0
 
-      cumulativeTotal += monthAmount
-
-      let projected = null
-      if (i > currentMonth && data.monthlyAverage > 0) {
-        // Project future months based on average
-        const projectedCumulative = data.monthlyAverage * (i + 1)
-        projected = projectedCumulative
+      if (monthAmount > 0) {
+        cumulativeTotal += monthAmount
       }
+
+      const projected = null
+      // No projection needed
+      // if (i > currentMonth && data.monthlyAverage > 0) {
+      //   // Project future months based on average
+      //   const projectedCumulative = data.monthlyAverage * (i + 1)
+      //   projected = projectedCumulative
+      // }
 
       chartData.push({
         month: months[i],
@@ -371,7 +371,7 @@ export default function CRBanksDashboard() {
         </header>
 
         {/* Summary Cards - Enhanced with more data */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
           <Card className="bg-white/10 backdrop-blur-sm border-white/20">
             <CardHeader className="pb-2 px-4 pt-4">
               <CardTitle className="text-white text-sm font-medium flex items-center gap-2">
@@ -417,21 +417,6 @@ export default function CRBanksDashboard() {
               </p>
             </CardContent>
           </Card>
-
-          <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-            <CardHeader className="pb-2 px-4 pt-4">
-              <CardTitle className="text-white text-sm font-medium truncate">Today's Activity</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="text-xl md:text-2xl font-bold text-blue-400">
-                ${data.todayAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-              </div>
-              <p className="text-xs text-gray-300 mt-1">Today's total</p>
-              {data.projectedLimitDate && (
-                <p className="text-xs text-yellow-400 mt-1">Limit: {data.projectedLimitDate}</p>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
         {/* Monthly Progress Chart - Using actual data */}
@@ -468,20 +453,21 @@ export default function CRBanksDashboard() {
                     fontSize={9}
                     tick={{ fontSize: 9 }}
                     tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
-                    width={35}
+                    width={50}
                   />
                   <Tooltip
                     formatter={(value: number, name: string) => [
                       `$${value.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
-                      name === "amount" ? "Cumulative Total" : name === "projected" ? "Projected" : "Limit",
+                      name === "amount" ? "Current" : name === "projected" ? "Projection" : "Limit",
                     ]}
                     labelFormatter={(label) => `Month: ${label}`}
-                    labelStyle={{ color: "#000", fontSize: "12px" }}
+                    labelStyle={{ color: "#fff", fontSize: "12px" }}
                     contentStyle={{
                       backgroundColor: "#1e293b",
                       border: "1px solid #475569",
                       fontSize: "12px",
                       padding: "8px",
+                      color: "#fff",
                     }}
                   />
                   <Line
@@ -497,7 +483,7 @@ export default function CRBanksDashboard() {
                         <circle {...props} fill="transparent" strokeWidth={0} r={0} />
                       )
                     }}
-                    name="Cumulative Total"
+                    name="Current"
                   />
                   <Line
                     type="monotone"
@@ -506,7 +492,7 @@ export default function CRBanksDashboard() {
                     strokeWidth={2}
                     strokeDasharray="3 3"
                     dot={{ fill: "#F59E0B", strokeWidth: 1, r: 2 }}
-                    name="Projected"
+                    name="Projection"
                     connectNulls={false}
                   />
                   <Line
@@ -516,7 +502,7 @@ export default function CRBanksDashboard() {
                     strokeWidth={1}
                     strokeDasharray="5 3"
                     dot={false}
-                    name="$17M Limit"
+                    name="Limit"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -533,9 +519,9 @@ export default function CRBanksDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 md:px-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-4">
               {/* Search */}
-              <div className="sm:col-span-2 lg:col-span-1">
+              <div className="sm:col-span-2">
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Search</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -548,24 +534,6 @@ export default function CRBanksDashboard() {
                 </div>
               </div>
 
-              {/* Issuer Filter */}
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Issuer</label>
-                <Select value={selectedIssuer} onValueChange={setSelectedIssuer}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white h-10">
-                    <SelectValue placeholder="All Issuers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Issuers</SelectItem>
-                    {data?.availableIssuers?.map((issuer) => (
-                      <SelectItem key={issuer} value={issuer}>
-                        {issuer}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Date Filter */}
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Date Filter</label>
@@ -575,10 +543,9 @@ export default function CRBanksDashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Dates</SelectItem>
-                    <SelectItem value="today">Today Only</SelectItem>
                     <SelectItem value="last7days">Last 7 Days</SelectItem>
+                    <SelectItem value="last15days">Last 15 Days</SelectItem>
                     <SelectItem value="last30days">Last 30 Days</SelectItem>
-                    <SelectItem value="currentyear">Current Year</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -688,6 +655,12 @@ export default function CRBanksDashboard() {
                 <BarChart3 className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 opacity-50" />
                 <p className="text-base md:text-lg font-mono">No transaction data yet</p>
                 <p className="text-sm mt-2 px-4">Your n8n workflow needs to send transaction data to the webhook.</p>
+                <div className="mt-4 bg-amber-900/20 border border-amber-600/30 rounded-lg p-4 max-w-sm mx-auto">
+                  <p className="text-amber-400 text-sm">
+                    <strong>Debug:</strong> Check if your n8n workflow is sending data to{" "}
+                    <code>/api/webhooks/cr-banks</code> with the correct structure.
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>
@@ -696,5 +669,3 @@ export default function CRBanksDashboard() {
     </div>
   )
 }
-
-
