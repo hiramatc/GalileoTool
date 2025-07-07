@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Download, Search, Filter } from "lucide-react"
+import { RefreshCw, Download, Search, Filter, AlertCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 
 interface Transaction {
@@ -43,8 +43,10 @@ interface BankingData {
 export default function USBanksDashboard() {
   const [data, setData] = useState<BankingData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState("")
@@ -52,12 +54,11 @@ export default function USBanksDashboard() {
   const [selectedAccount, setSelectedAccount] = useState<string>("all")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [amountFilter, setAmountFilter] = useState<string>("all")
-  const [dateFilter, setDateFilter] = useState<string>("last15days") // Default to last 15 days
+  const [dateFilter, setDateFilter] = useState<string>("last15days")
   const [selectedMonth, setSelectedMonth] = useState<string>("all")
   const [selectedYear, setSelectedYear] = useState<string>("all")
 
-  // All possible values (keep all for filtering, but hide specific accounts from display)
-  const allBanks = ["Chase", "PNC", "Relay", "US Bank", "Wise"] // Keep Relay for filtering
+  const allBanks = ["Chase", "PNC", "Relay", "US Bank", "Wise"]
   const allAccounts = ["Felade", "WC", "Legatum", "Finvex", "OneStar"]
   const allCategories = [
     "Bank Charge",
@@ -105,70 +106,90 @@ export default function USBanksDashboard() {
     checkUserRole()
   }, [])
 
-  // Enhanced fetch data function that triggers n8n workflow
-  const fetchData = async () => {
-    setLoading(true)
+  // Fetch existing banking data
+  const fetchExistingData = async () => {
     try {
-      console.log("Starting data refresh...")
+      console.log("Fetching existing US Banks data...")
+      const response = await fetch("/api/webhooks/us-banks")
+      const result = await response.json()
 
-      // First, trigger the n8n workflow to fetch fresh data
-      const triggerResponse = await fetch("/api/trigger-refresh/us-banks", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (triggerResponse.ok) {
-        console.log("n8n workflow triggered successfully")
-        // Wait a moment for n8n to process and send data back
-        await new Promise((resolve) => setTimeout(resolve, 5000)) // Increased wait time
-
-        // Now fetch the updated data
-        const response = await fetch("/api/webhooks/us-banks")
-        const result = await response.json()
-
-        if (result.success) {
-          console.log("Fresh data received:", result.data)
-          setData(result.data)
-          setFilteredTransactions(result.data.processedData)
-        } else {
-          console.error("Failed to fetch banking data:", result.message)
-        }
+      if (result.success && result.data) {
+        console.log("US Banks data received:", result.data)
+        setData(result.data)
+        setFilteredTransactions(result.data.processedData || [])
+        setRefreshError(null)
+        return true
       } else {
-        console.log("n8n trigger failed, fetching existing data")
-        // Fallback to just fetching existing data if trigger fails
-        const response = await fetch("/api/webhooks/us-banks")
-        const result = await response.json()
-
-        if (result.success) {
-          setData(result.data)
-          setFilteredTransactions(result.data.processedData)
-        } else {
-          console.error("Failed to fetch banking data:", result.message)
-        }
+        console.error("Failed to fetch banking data:", result.message)
+        setRefreshError(result.message || "Failed to fetch data")
+        return false
       }
     } catch (error) {
       console.error("Error fetching banking data:", error)
-      // Fallback to existing data on error
-      try {
-        const response = await fetch("/api/webhooks/us-banks")
-        const result = await response.json()
-        if (result.success) {
-          setData(result.data)
-          setFilteredTransactions(result.data.processedData)
-        }
-      } catch (fallbackError) {
-        console.error("Fallback fetch also failed:", fallbackError)
-      }
-    } finally {
-      setLoading(false)
+      setRefreshError(error instanceof Error ? error.message : "Network error")
+      return false
     }
+  }
+
+  // Enhanced refresh function with n8n trigger
+  const refreshData = async () => {
+    setRefreshing(true)
+    setRefreshError(null)
+
+    try {
+      console.log("Starting US Banks refresh...")
+
+      // First, try to trigger n8n workflow
+      try {
+        console.log("Attempting to trigger n8n workflow...")
+        const triggerResponse = await fetch("/api/trigger-refresh/us-banks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        const triggerResult = await triggerResponse.json()
+        console.log("Trigger response:", triggerResult)
+
+        if (triggerResponse.ok && triggerResult.success) {
+          console.log("n8n workflow triggered successfully, waiting for data...")
+          // Wait for n8n to process
+          await new Promise((resolve) => setTimeout(resolve, 3000))
+        } else {
+          console.warn("n8n trigger failed:", triggerResult.message)
+          setRefreshError(`n8n trigger failed: ${triggerResult.message}`)
+        }
+      } catch (triggerError) {
+        console.warn("n8n trigger error:", triggerError)
+        setRefreshError(`n8n trigger error: ${triggerError instanceof Error ? triggerError.message : "Unknown error"}`)
+      }
+
+      // Always try to fetch the latest data (whether n8n worked or not)
+      const dataFetched = await fetchExistingData()
+
+      if (!dataFetched) {
+        throw new Error("Failed to fetch updated data")
+      }
+
+      console.log("Refresh completed successfully")
+    } catch (error) {
+      console.error("Refresh failed:", error)
+      setRefreshError(error instanceof Error ? error.message : "Refresh failed")
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // Initial data fetch
+  const fetchData = async () => {
+    setLoading(true)
+    await fetchExistingData()
+    setLoading(false)
   }
 
   // Parse date for filtering
   const parseDate = (dateString: string) => {
-    // Parse "01-Jul-2025" format
     const parts = dateString.split("-")
     const day = Number.parseInt(parts[0])
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -183,7 +204,6 @@ export default function USBanksDashboard() {
 
     let filtered = data.processedData
 
-    // Search term filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
       filtered = filtered.filter(
@@ -195,22 +215,18 @@ export default function USBanksDashboard() {
       )
     }
 
-    // Bank filter
     if (selectedBank !== "all") {
       filtered = filtered.filter((t) => t.bank === selectedBank)
     }
 
-    // Account filter
     if (selectedAccount !== "all") {
       filtered = filtered.filter((t) => t.account === selectedAccount)
     }
 
-    // Category filter
     if (selectedCategory !== "all") {
       filtered = filtered.filter((t) => t.category === selectedCategory)
     }
 
-    // Amount filter
     if (amountFilter !== "all") {
       switch (amountFilter) {
         case "positive":
@@ -231,10 +247,8 @@ export default function USBanksDashboard() {
       }
     }
 
-    // Date filter
     if (dateFilter !== "all") {
       const today = new Date()
-
       switch (dateFilter) {
         case "today":
           filtered = filtered.filter((t) => t.isToday)
@@ -254,13 +268,11 @@ export default function USBanksDashboard() {
       }
     }
 
-    // Month filter
     if (selectedMonth !== "all") {
       const monthIndex = months.indexOf(selectedMonth)
       filtered = filtered.filter((t) => parseDate(t.date).getMonth() === monthIndex)
     }
 
-    // Year filter
     if (selectedYear !== "all") {
       const year = Number.parseInt(selectedYear)
       filtered = filtered.filter((t) => parseDate(t.date).getFullYear() === year)
@@ -286,7 +298,7 @@ export default function USBanksDashboard() {
     setSelectedAccount("all")
     setSelectedCategory("all")
     setAmountFilter("all")
-    setDateFilter("last15days") // Reset to last 15 days instead of 'all'
+    setDateFilter("last15days")
     setSelectedMonth("all")
     setSelectedYear("all")
   }
@@ -327,7 +339,6 @@ export default function USBanksDashboard() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
-          {/* Header with Navigation */}
           <header className="mb-8">
             <div className="flex items-center gap-3 mb-4">
               <img
@@ -352,9 +363,19 @@ export default function USBanksDashboard() {
               Your n8n workflow hasn't sent any data to the webhook yet. Make sure your automation is running and
               sending data to the correct endpoint.
             </p>
-            <Button onClick={fetchData} className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              {loading ? "Refreshing..." : "Refresh Data"}
+
+            {refreshError && (
+              <div className="mb-4 p-3 bg-red-900/20 border border-red-600/30 rounded-lg max-w-md">
+                <div className="flex items-center gap-2 text-red-400 text-sm">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Error: {refreshError}</span>
+                </div>
+              </div>
+            )}
+
+            <Button onClick={refreshData} className="bg-blue-600 hover:bg-blue-700" disabled={refreshing}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing..." : "Refresh Data"}
             </Button>
           </div>
         </div>
@@ -364,7 +385,6 @@ export default function USBanksDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Background Effects */}
       <div className="absolute inset-0 opacity-5">
         <div
           style={{
@@ -378,7 +398,6 @@ export default function USBanksDashboard() {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-8">
-        {/* Header with Navigation */}
         <header className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <img
@@ -431,23 +450,20 @@ export default function USBanksDashboard() {
           </Card>
         </div>
 
-        {/* Account Summary - Bank Account Totals */}
+        {/* Account Summary */}
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-8">
           <CardHeader>
             <CardTitle className="text-white">Bank Account Totals</CardTitle>
-            <CardDescription className="text-gray-300">
-              Active accounts with balances (like your Google Sheets summary)
-            </CardDescription>
+            <CardDescription className="text-gray-300">Active accounts with balances</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {Object.entries(data.accountSummary || {})
                 .filter(([key, account]) => {
-                  // Hide Relay, empty accounts, and specific accounts you don't want to see
                   const hideAccounts = ["Chase-Felade", "PNC-WC", "Chase-WC"]
                   return account.count > 0 && !account.bank.includes("Relay") && !hideAccounts.includes(key)
                 })
-                .sort(([, a], [, b]) => b.total - a.total) // Sort by balance (highest first)
+                .sort(([, a], [, b]) => b.total - a.total)
                 .map(([key, account]) => (
                   <div key={key} className="bg-white/5 rounded-lg p-4 border border-white/10">
                     <div className="text-sm font-medium text-gray-300">{account.bank}</div>
@@ -472,7 +488,6 @@ export default function USBanksDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {/* Search */}
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Search</label>
                 <div className="relative">
@@ -486,7 +501,6 @@ export default function USBanksDashboard() {
                 </div>
               </div>
 
-              {/* Bank Filter */}
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Bank</label>
                 <Select value={selectedBank} onValueChange={setSelectedBank}>
@@ -504,7 +518,6 @@ export default function USBanksDashboard() {
                 </Select>
               </div>
 
-              {/* Account Filter */}
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Account</label>
                 <Select value={selectedAccount} onValueChange={setSelectedAccount}>
@@ -522,7 +535,6 @@ export default function USBanksDashboard() {
                 </Select>
               </div>
 
-              {/* Category Filter */}
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Category</label>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -540,7 +552,6 @@ export default function USBanksDashboard() {
                 </Select>
               </div>
 
-              {/* Amount Filter */}
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Amount</label>
                 <Select value={amountFilter} onValueChange={setAmountFilter}>
@@ -558,7 +569,6 @@ export default function USBanksDashboard() {
                 </Select>
               </div>
 
-              {/* Date Range Filter */}
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Date Range</label>
                 <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -575,7 +585,6 @@ export default function USBanksDashboard() {
                 </Select>
               </div>
 
-              {/* Month Filter */}
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Month</label>
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
@@ -593,7 +602,6 @@ export default function USBanksDashboard() {
                 </Select>
               </div>
 
-              {/* Year Filter */}
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-2 block">Year</label>
                 <Select value={selectedYear} onValueChange={setSelectedYear}>
@@ -612,7 +620,15 @@ export default function USBanksDashboard() {
               </div>
             </div>
 
-            {/* Action Buttons */}
+            {refreshError && (
+              <div className="mb-4 p-3 bg-red-900/20 border border-red-600/30 rounded-lg">
+                <div className="flex items-center gap-2 text-red-400 text-sm">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Refresh Error: {refreshError}</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <Button
                 onClick={clearFilters}
@@ -621,9 +637,9 @@ export default function USBanksDashboard() {
               >
                 Clear Filters
               </Button>
-              <Button onClick={fetchData} className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                {loading ? "Refreshing..." : "Refresh Data"}
+              <Button onClick={refreshData} className="bg-blue-600 hover:bg-blue-700" disabled={refreshing}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+                {refreshing ? "Refreshing..." : "Refresh Data"}
               </Button>
               <Button onClick={exportData} className="bg-green-600 hover:bg-green-700">
                 <Download className="h-4 w-4 mr-2" />
