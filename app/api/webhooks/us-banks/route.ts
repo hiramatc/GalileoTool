@@ -1,162 +1,77 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-// In-memory storage for banking data (similar to your current approach)
-let usBanksData: any = null
-let lastUpdated = ""
-let requestLog: any[] = []
+// In-memory storage for banking data (in production, use a database)
+let bankingData: any = null
+let lastUpdated: string | null = null
 
 export async function POST(request: NextRequest) {
-  const timestamp = new Date().toISOString()
-
   try {
-    // Log the incoming request details
-    const headers = Object.fromEntries(request.headers.entries())
-    const url = request.url
-    const method = request.method
+    console.log("US Banks webhook received data")
+    const data = await request.json()
 
-    console.log("=== US BANKS WEBHOOK REQUEST ===")
-    console.log("Timestamp:", timestamp)
-    console.log("Method:", method)
-    console.log("URL:", url)
-    console.log("Headers:", headers)
+    // Store the received data
+    bankingData = data
+    lastUpdated = new Date().toISOString()
 
-    // Parse the incoming data from n8n
-    const rawBody = await request.text()
-    console.log("Raw Body:", rawBody)
-
-    let data
-    try {
-      data = JSON.parse(rawBody)
-      console.log("Parsed Data:", data)
-    } catch (parseError) {
-      console.error("JSON Parse Error:", parseError)
-
-      // Log the failed request
-      requestLog.unshift({
-        timestamp,
-        success: false,
-        error: "Invalid JSON",
-        rawBody: rawBody.substring(0, 500), // First 500 chars
-        headers,
-      })
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid JSON format",
-          message: "Request body is not valid JSON",
-          receivedData: rawBody.substring(0, 200),
-        },
-        { status: 400 },
-      )
-    }
-
-    // Store the data in memory
-    usBanksData = data
-    lastUpdated = timestamp
-
-    // Log successful request
-    requestLog.unshift({
-      timestamp,
-      success: true,
-      dataKeys: Object.keys(data),
-      dataSize: JSON.stringify(data).length,
+    console.log("US Banks data stored successfully:", {
+      totalTransactions: data.totalTransactions || 0,
+      updateTime: lastUpdated,
     })
 
-    // Keep only last 10 requests in log
-    if (requestLog.length > 10) {
-      requestLog = requestLog.slice(0, 10)
-    }
-
-    // Log for debugging
-    console.log("US Banks data updated successfully:", {
-      totalTransactions: data.totalTransactions,
-      todayTransactions: data.todayTransactionCount,
-      monthTotal: data.monthTotal,
-      updateTime: data.updateTime,
-      dataKeys: Object.keys(data),
-    })
-
-    // Return success response
     return NextResponse.json({
       success: true,
-      message: "US Banks data updated successfully",
+      message: "US Banks data received and stored successfully",
       timestamp: lastUpdated,
-      receivedData: {
-        totalTransactions: data.totalTransactions,
-        todayTransactions: data.todayTransactionCount,
-        monthTotal: data.monthTotal,
-        dataKeys: Object.keys(data),
-        dataSize: JSON.stringify(data).length,
-      },
     })
   } catch (error) {
-    console.error("=== US BANKS WEBHOOK ERROR ===")
     console.error("Error processing US Banks webhook:", error)
-    console.error("Stack trace:", error instanceof Error ? error.stack : "No stack trace")
-
-    // Log the failed request
-    requestLog.unshift({
-      timestamp,
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-      stack: error instanceof Error ? error.stack : undefined,
-    })
-
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to process US Banks data",
-        message: error instanceof Error ? error.message : "Unknown error",
-        timestamp,
+        message: "Failed to process webhook data",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     )
   }
 }
 
-// GET endpoint to retrieve current banking data (for your dashboard)
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    if (!usBanksData) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "No banking data available yet",
-          lastUpdated: null,
-          requestLog: requestLog.slice(0, 5), // Show last 5 requests for debugging
-        },
-        { status: 404 },
-      )
+    console.log("US Banks GET request - checking for data...")
+
+    if (!bankingData) {
+      console.log("No US Banks data available yet")
+      return NextResponse.json({
+        success: false,
+        message: "No banking data available yet. Waiting for n8n workflow to send data.",
+        data: null,
+        lastUpdated: null,
+      })
     }
+
+    console.log("Returning US Banks data:", {
+      totalTransactions: bankingData.totalTransactions || 0,
+      lastUpdated,
+    })
 
     return NextResponse.json({
       success: true,
-      data: usBanksData,
-      lastUpdated: lastUpdated,
-      requestLog: requestLog.slice(0, 5), // Show last 5 requests for debugging
+      message: "US Banks data retrieved successfully",
+      data: bankingData,
+      lastUpdated,
     })
   } catch (error) {
     console.error("Error retrieving US Banks data:", error)
-
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to retrieve US Banks data",
+        message: "Failed to retrieve banking data",
+        error: error instanceof Error ? error.message : "Unknown error",
+        data: null,
       },
       { status: 500 },
     )
   }
 }
 
-// Add OPTIONS method for CORS preflight
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    },
-  })
-}
