@@ -71,6 +71,8 @@ export default function CRBanksDashboard() {
   const fetchData = async () => {
     setLoading(true)
     try {
+      console.log("Starting CR Banks data refresh...")
+
       // First, trigger the n8n workflow to fetch fresh data
       const triggerResponse = await fetch("/api/trigger-refresh/cr-banks", {
         method: "POST",
@@ -80,27 +82,29 @@ export default function CRBanksDashboard() {
       })
 
       if (triggerResponse.ok) {
+        console.log("CR Banks n8n workflow triggered successfully")
         // Wait a moment for n8n to process and send data back
-        await new Promise((resolve) => setTimeout(resolve, 3000))
+        await new Promise((resolve) => setTimeout(resolve, 5000)) // Increased wait time
 
         // Now fetch the updated data
         const response = await fetch("/api/webhooks/cr-banks")
         const result = await response.json()
 
         if (result.success) {
-          console.log("CR Banks data received:", result.data)
+          console.log("Fresh CR Banks data received:", result.data)
           setData(result.data)
           setFilteredTransactions(result.data.processedData || [])
         } else {
           console.error("Failed to fetch CR banking data:", result.message)
         }
       } else {
+        console.log("CR Banks n8n trigger failed, fetching existing data")
         // Fallback to just fetching existing data if trigger fails
         const response = await fetch("/api/webhooks/cr-banks")
         const result = await response.json()
 
         if (result.success) {
-          console.log("CR Banks data received:", result.data)
+          console.log("CR Banks existing data received:", result.data)
           setData(result.data)
           setFilteredTransactions(result.data.processedData || [])
         } else {
@@ -109,6 +113,17 @@ export default function CRBanksDashboard() {
       }
     } catch (error) {
       console.error("Error fetching CR banking data:", error)
+      // Fallback to existing data on error
+      try {
+        const response = await fetch("/api/webhooks/cr-banks")
+        const result = await response.json()
+        if (result.success) {
+          setData(result.data)
+          setFilteredTransactions(result.data.processedData || [])
+        }
+      } catch (fallbackError) {
+        console.error("CR Banks fallback fetch also failed:", fallbackError)
+      }
     } finally {
       setLoading(false)
     }
@@ -347,9 +362,9 @@ export default function CRBanksDashboard() {
               Your n8n workflow hasn't sent any data to the CR Banks webhook yet. Make sure your automation is running
               and sending data to the correct endpoint.
             </p>
-            <Button onClick={fetchData} className="bg-green-600 hover:bg-green-700">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh Data
+            <Button onClick={fetchData} className="bg-green-600 hover:bg-green-700" disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              {loading ? "Refreshing..." : "Refresh Data"}
             </Button>
           </div>
         </div>
@@ -586,8 +601,8 @@ export default function CRBanksDashboard() {
               >
                 Clear Filters
               </Button>
-              <Button onClick={fetchData} className="bg-green-600 hover:bg-green-700 text-sm h-9">
-                <RefreshCw className="h-4 w-4 mr-2" />
+              <Button onClick={fetchData} className="bg-green-600 hover:bg-green-700" disabled={loading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 {loading ? "Refreshing..." : "Refresh"}
               </Button>
               <Button
