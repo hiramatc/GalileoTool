@@ -12,26 +12,30 @@ import { Navigation } from "@/components/navigation"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
 interface Transaction {
-  date: string
-  bank: string
-  account: string
+  transactionNumber: string
+  issuer: string
   amount: number
-  description: string
-  category: string
+  date: string
+  timestamp: string
+  isToday: boolean
+  isCurrentYear: boolean
 }
 
 interface CRBankingData {
-  totalTransactions: number
+  processedData: Transaction[]
   yearlyTotal: number
   limitPercentage: number
   alertStatus: string
+  alertMessage: string
   updateTime: string
-  transactions?: Transaction[]
-  monthlyProgress?: Array<{
-    month: string
-    amount: number
-    projected?: number
-  }>
+  totalTransactions: number
+  monthlyTotals: { [key: string]: { total: number; count: number } }
+  issuerSummary: { [key: string]: { total: number; count: number } }
+  availableIssuers: string[]
+  projectedLimitDate: string | null
+  monthlyAverage: number
+  todayAmount: number
+  monthTotal: number
 }
 
 const YEARLY_LIMIT = 17000000 // $17 million limit
@@ -42,30 +46,11 @@ export default function CRBanksDashboard() {
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
 
-  // Filter states
+  // Simplified filter states
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedBank, setSelectedBank] = useState<string>("all")
-  const [selectedAccount, setSelectedAccount] = useState<string>("all")
-  const [selectedCategory, setSelectedCategory] = useState<string>("all")
-  const [dateFilter, setDateFilter] = useState<string>("last30days")
-  const [selectedMonth, setSelectedMonth] = useState<string>("all")
-  const [selectedYear, setSelectedYear] = useState<string>("all")
-
-  const months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ]
-  const years = ["2023", "2024", "2025", "2026"]
+  const [selectedIssuer, setSelectedIssuer] = useState<string>("all")
+  const [dateFilter, setDateFilter] = useState<string>("all")
+  const [showCurrentYearOnly, setShowCurrentYearOnly] = useState(false)
 
   // Check if user is admin
   useEffect(() => {
@@ -93,7 +78,7 @@ export default function CRBanksDashboard() {
       if (result.success) {
         console.log("CR Banks data received:", result.data)
         setData(result.data)
-        setFilteredTransactions(result.data.transactions || [])
+        setFilteredTransactions(result.data.processedData || [])
       } else {
         console.error("Failed to fetch CR banking data:", result.message)
       }
@@ -106,88 +91,105 @@ export default function CRBanksDashboard() {
 
   // Parse date for filtering
   const parseDate = (dateString: string) => {
-    return new Date(dateString)
+    // Handle CR date format (17/01/2024 or 04/Jul/2025)
+    try {
+      const parts = dateString.split("/")
+      const day = Number.parseInt(parts[0])
+      let month, year
+
+      if (isNaN(Number.parseInt(parts[1]))) {
+        // Month name format (04/Jul/2025)
+        const months = {
+          Jan: 0,
+          Feb: 1,
+          Mar: 2,
+          Apr: 3,
+          May: 4,
+          Jun: 5,
+          Jul: 6,
+          Aug: 7,
+          Sep: 8,
+          Oct: 9,
+          Nov: 10,
+          Dec: 11,
+        }
+        month = months[parts[1] as keyof typeof months]
+        year = Number.parseInt(parts[2])
+      } else {
+        // Numeric format (17/01/2024)
+        month = Number.parseInt(parts[1]) - 1
+        year = Number.parseInt(parts[2])
+      }
+
+      return new Date(year, month, day)
+    } catch (error) {
+      return new Date()
+    }
   }
 
   // Apply filters
   useEffect(() => {
-    if (!data?.transactions) {
+    if (!data?.processedData) {
       setFilteredTransactions([])
       return
     }
 
-    let filtered = data.transactions
+    let filtered = data.processedData
 
     // Search term filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
       filtered = filtered.filter(
         (t) =>
-          t.description.toLowerCase().includes(searchLower) ||
-          t.bank.toLowerCase().includes(searchLower) ||
-          t.account.toLowerCase().includes(searchLower) ||
-          t.category.toLowerCase().includes(searchLower),
+          t.issuer.toLowerCase().includes(searchLower) ||
+          t.transactionNumber.toLowerCase().includes(searchLower) ||
+          t.amount.toString().includes(searchLower),
       )
     }
 
-    // Bank filter
-    if (selectedBank !== "all") {
-      filtered = filtered.filter((t) => t.bank === selectedBank)
+    // Issuer filter
+    if (selectedIssuer !== "all") {
+      filtered = filtered.filter((t) => t.issuer === selectedIssuer)
     }
 
-    // Account filter
-    if (selectedAccount !== "all") {
-      filtered = filtered.filter((t) => t.account === selectedAccount)
-    }
-
-    // Category filter
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter((t) => t.category === selectedCategory)
+    // Current year filter
+    if (showCurrentYearOnly) {
+      filtered = filtered.filter((t) => t.isCurrentYear)
     }
 
     // Date filter
     if (dateFilter !== "all") {
       const today = new Date()
       switch (dateFilter) {
-        case "last30days":
-          const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-          filtered = filtered.filter((t) => parseDate(t.date) >= thirtyDaysAgo)
+        case "today":
+          filtered = filtered.filter((t) => t.isToday)
           break
         case "last7days":
           const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
           filtered = filtered.filter((t) => parseDate(t.date) >= sevenDaysAgo)
           break
-        case "last90days":
-          const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
-          filtered = filtered.filter((t) => parseDate(t.date) >= ninetyDaysAgo)
+        case "last30days":
+          const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+          filtered = filtered.filter((t) => parseDate(t.date) >= thirtyDaysAgo)
+          break
+        case "currentyear":
+          filtered = filtered.filter((t) => t.isCurrentYear)
           break
       }
     }
 
-    // Month filter
-    if (selectedMonth !== "all") {
-      const monthIndex = months.indexOf(selectedMonth)
-      filtered = filtered.filter((t) => parseDate(t.date).getMonth() === monthIndex)
-    }
-
-    // Year filter
-    if (selectedYear !== "all") {
-      const year = Number.parseInt(selectedYear)
-      filtered = filtered.filter((t) => parseDate(t.date).getFullYear() === year)
-    }
+    // Sort by date (newest first)
+    filtered.sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime())
 
     setFilteredTransactions(filtered)
-  }, [data, searchTerm, selectedBank, selectedAccount, selectedCategory, dateFilter, selectedMonth, selectedYear])
+  }, [data, searchTerm, selectedIssuer, dateFilter, showCurrentYearOnly])
 
   // Clear filters
   const clearFilters = () => {
     setSearchTerm("")
-    setSelectedBank("all")
-    setSelectedAccount("all")
-    setSelectedCategory("all")
-    setDateFilter("last30days")
-    setSelectedMonth("all")
-    setSelectedYear("all")
+    setSelectedIssuer("all")
+    setDateFilter("all")
+    setShowCurrentYearOnly(false)
   }
 
   // Export filtered data
@@ -198,8 +200,15 @@ export default function CRBanksDashboard() {
     }
 
     const csvContent = [
-      ["Date", "Bank", "Account", "Amount", "Description", "Category"],
-      ...filteredTransactions.map((t) => [t.date, t.bank, t.account, t.amount.toString(), t.description, t.category]),
+      ["Date", "Transaction Number", "Issuer", "Amount", "Is Today", "Is Current Year"],
+      ...filteredTransactions.map((t) => [
+        t.date,
+        t.transactionNumber,
+        t.issuer,
+        t.amount.toString(),
+        t.isToday ? "Yes" : "No",
+        t.isCurrentYear ? "Yes" : "No",
+      ]),
     ]
       .map((row) => row.join(","))
       .join("\n")
@@ -213,99 +222,61 @@ export default function CRBanksDashboard() {
     window.URL.revokeObjectURL(url)
   }
 
-  // Generate monthly progression chart data
+  // Generate monthly progression chart data from actual monthlyTotals
   const generateMonthlyChartData = () => {
-    if (!data) return []
+    if (!data?.monthlyTotals) return []
 
     const currentDate = new Date()
     const currentYear = currentDate.getFullYear()
     const currentMonth = currentDate.getMonth()
 
-    // If we have monthlyProgress data from webhook, use it
-    if (data.monthlyProgress && data.monthlyProgress.length > 0) {
-      return data.monthlyProgress.map((item) => ({
-        month: item.month,
-        amount: item.amount,
-        projected: item.projected || null,
-        limit: YEARLY_LIMIT,
-      }))
-    }
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-    // Otherwise, generate monthly data based on current total
-    const monthlyData = []
-    const monthlyAverage = data.yearlyTotal / (currentMonth + 1) // Average per month so far
+    const chartData = []
+    let cumulativeTotal = 0
 
-    for (let i = 0; i <= 11; i++) {
-      const monthName = months[i]
-      let amount = 0
+    for (let i = 0; i < 12; i++) {
+      const monthKey = `${i + 1}/${currentYear}`
+      const monthData = data.monthlyTotals[monthKey]
+      const monthAmount = monthData ? monthData.total : 0
+
+      cumulativeTotal += monthAmount
+
       let projected = null
-
-      if (i <= currentMonth) {
-        // Past and current months - estimate based on current progress
-        amount = (data.yearlyTotal / (currentMonth + 1)) * (i + 1)
-      } else {
-        // Future months - projection
-        projected = monthlyAverage * (i + 1)
-        amount = projected
+      if (i > currentMonth && data.monthlyAverage > 0) {
+        // Project future months based on average
+        const projectedCumulative = data.monthlyAverage * (i + 1)
+        projected = projectedCumulative
       }
 
-      monthlyData.push({
-        month: monthName.substring(0, 3), // Short month names
-        amount: Math.round(amount),
-        projected: i > currentMonth ? Math.round(projected) : null,
+      chartData.push({
+        month: months[i],
+        amount: cumulativeTotal,
+        projected: projected,
         limit: YEARLY_LIMIT,
-        isProjected: i > currentMonth,
+        monthlyAmount: monthAmount,
+        hasData: monthAmount > 0,
       })
     }
 
-    return monthlyData
-  }
-
-  // Calculate when limit will be reached
-  const calculateLimitReachDate = () => {
-    if (!data) return null
-
-    const currentDate = new Date()
-    const currentMonth = currentDate.getMonth()
-    const monthlyAverage = data.yearlyTotal / (currentMonth + 1)
-
-    if (monthlyAverage <= 0) return null
-
-    const monthsToLimit = YEARLY_LIMIT / monthlyAverage
-
-    if (monthsToLimit <= 12) {
-      const limitMonth = Math.ceil(monthsToLimit) - 1
-      return months[Math.min(limitMonth, 11)]
-    }
-
-    return null
+    return chartData
   }
 
   // Calculate remaining amount and get alert color
   const remainingAmount = YEARLY_LIMIT - (data?.yearlyTotal || 0)
   const getAlertColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case "green":
       case "normal":
         return "text-green-400"
-      case "yellow":
       case "warning":
         return "text-yellow-400"
-      case "red":
       case "critical":
+      case "exceeded":
         return "text-red-400"
       default:
         return "text-gray-400"
     }
   }
-
-  // Get unique values for filters
-  const getUniqueValues = (field: keyof Transaction) => {
-    if (!data?.transactions) return []
-    return [...new Set(data.transactions.map((t) => t[field]))].sort()
-  }
-
-  const limitReachDate = calculateLimitReachDate()
 
   useEffect(() => {
     fetchData()
@@ -376,7 +347,6 @@ export default function CRBanksDashboard() {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-8">
-        {/* Header with Navigation */}
         {/* Header with Navigation - Mobile Optimized */}
         <header className="mb-6 md:mb-8">
           <div className="flex flex-col gap-4">
@@ -400,9 +370,8 @@ export default function CRBanksDashboard() {
           </div>
         </header>
 
-        {/* Summary Cards */}
-        {/* Summary Cards - Mobile Optimized */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+        {/* Summary Cards - Enhanced with more data */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
           <Card className="bg-white/10 backdrop-blur-sm border-white/20">
             <CardHeader className="pb-2 px-4 pt-4">
               <CardTitle className="text-white text-sm font-medium flex items-center gap-2">
@@ -414,7 +383,7 @@ export default function CRBanksDashboard() {
               <div className="text-xl md:text-2xl font-bold text-white">
                 ${data.yearlyTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </div>
-              <p className="text-xs text-gray-300 mt-1">This year</p>
+              <p className="text-xs text-gray-300 mt-1">This year ({data.totalTransactions} transactions)</p>
             </CardContent>
           </Card>
 
@@ -432,7 +401,7 @@ export default function CRBanksDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/10 backdrop-blur-sm border-white/20 sm:col-span-2 lg:col-span-1">
+          <Card className="bg-white/10 backdrop-blur-sm border-white/20">
             <CardHeader className="pb-2 px-4 pt-4">
               <CardTitle className="text-white text-sm font-medium flex items-center gap-2">
                 <AlertTriangle className={`h-4 w-4 flex-shrink-0 ${getAlertColor(data.alertStatus)}`} />
@@ -446,22 +415,37 @@ export default function CRBanksDashboard() {
               <p className="text-xs text-gray-300 mt-1">
                 Status: <span className={getAlertColor(data.alertStatus)}>{data.alertStatus?.toUpperCase()}</span>
               </p>
-              {limitReachDate && <p className="text-xs text-yellow-400 mt-1">Limit: {limitReachDate}</p>}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+            <CardHeader className="pb-2 px-4 pt-4">
+              <CardTitle className="text-white text-sm font-medium truncate">Today's Activity</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="text-xl md:text-2xl font-bold text-blue-400">
+                ${data.todayAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-xs text-gray-300 mt-1">Today's total</p>
+              {data.projectedLimitDate && (
+                <p className="text-xs text-yellow-400 mt-1">Limit: {data.projectedLimitDate}</p>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Monthly Progress Chart */}
-        {/* Monthly Progress Chart - Mobile Optimized */}
+        {/* Monthly Progress Chart - Using actual data */}
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-6 md:mb-8">
           <CardHeader className="px-4 md:px-6">
             <CardTitle className="text-white flex items-center gap-2 text-lg md:text-xl">
               <BarChart3 className="h-5 w-5 flex-shrink-0" />
-              <span className="truncate">Monthly Progress</span>
+              <span className="truncate">Monthly Cumulative Progress</span>
             </CardTitle>
             <CardDescription className="text-gray-300 text-sm">
-              <span className="block">Monthly totals with projection</span>
-              {limitReachDate && <span className="text-yellow-400 text-xs">• Limit projected: {limitReachDate}</span>}
+              <span className="block">Actual monthly cumulative totals toward $17M limit</span>
+              {data.projectedLimitDate && (
+                <span className="text-yellow-400 text-xs">• Projected to reach limit: {data.projectedLimitDate}</span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="px-2 md:px-6 pb-4">
@@ -489,8 +473,9 @@ export default function CRBanksDashboard() {
                   <Tooltip
                     formatter={(value: number, name: string) => [
                       `$${value.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
-                      name === "amount" ? "Total" : name === "projected" ? "Projected" : "Limit",
+                      name === "amount" ? "Cumulative Total" : name === "projected" ? "Projected" : "Limit",
                     ]}
+                    labelFormatter={(label) => `Month: ${label}`}
                     labelStyle={{ color: "#000", fontSize: "12px" }}
                     contentStyle={{
                       backgroundColor: "#1e293b",
@@ -503,9 +488,16 @@ export default function CRBanksDashboard() {
                     type="monotone"
                     dataKey="amount"
                     stroke="#10B981"
-                    strokeWidth={2}
-                    dot={{ fill: "#10B981", strokeWidth: 1, r: 3 }}
-                    name="Total"
+                    strokeWidth={3}
+                    dot={(props) => {
+                      const { payload } = props
+                      return payload?.hasData ? (
+                        <circle {...props} fill="#10B981" strokeWidth={2} r={4} />
+                      ) : (
+                        <circle {...props} fill="transparent" strokeWidth={0} r={0} />
+                      )
+                    }}
+                    name="Cumulative Total"
                   />
                   <Line
                     type="monotone"
@@ -524,7 +516,7 @@ export default function CRBanksDashboard() {
                     strokeWidth={1}
                     strokeDasharray="5 3"
                     dot={false}
-                    name="Limit"
+                    name="$17M Limit"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -532,13 +524,12 @@ export default function CRBanksDashboard() {
           </CardContent>
         </Card>
 
-        {/* Filters and Controls - Always show */}
-        {/* Filters and Controls - Mobile Optimized */}
+        {/* Simplified Filters and Controls */}
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-6">
           <CardHeader className="px-4 md:px-6">
             <CardTitle className="text-white flex items-center gap-2 text-lg">
               <Filter className="h-5 w-5 flex-shrink-0" />
-              <span className="truncate">Filters & Controls</span>
+              <span className="truncate">Transaction Filters</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 md:px-6">
@@ -549,7 +540,7 @@ export default function CRBanksDashboard() {
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Search..."
+                    placeholder="Search transactions..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-10"
@@ -557,114 +548,43 @@ export default function CRBanksDashboard() {
                 </div>
               </div>
 
-              {/* Bank Filter */}
+              {/* Issuer Filter */}
               <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Bank</label>
-                <Select value={selectedBank} onValueChange={setSelectedBank}>
+                <label className="text-sm font-medium text-gray-300 mb-2 block">Issuer</label>
+                <Select value={selectedIssuer} onValueChange={setSelectedIssuer}>
                   <SelectTrigger className="bg-white/10 border-white/20 text-white h-10">
-                    <SelectValue placeholder="All Banks" />
+                    <SelectValue placeholder="All Issuers" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Banks</SelectItem>
-                    {getUniqueValues("bank").map((bank) => (
-                      <SelectItem key={bank} value={bank}>
-                        {bank}
+                    <SelectItem value="all">All Issuers</SelectItem>
+                    {data?.availableIssuers?.map((issuer) => (
+                      <SelectItem key={issuer} value={issuer}>
+                        {issuer}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Account Filter */}
+              {/* Date Filter */}
               <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Account</label>
-                <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white h-10">
-                    <SelectValue placeholder="All Accounts" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Accounts</SelectItem>
-                    {getUniqueValues("account").map((account) => (
-                      <SelectItem key={account} value={account}>
-                        {account}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Category Filter */}
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Category</label>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white h-10">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {getUniqueValues("category").map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Date Range Filter */}
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Date Range</label>
+                <label className="text-sm font-medium text-gray-300 mb-2 block">Date Filter</label>
                 <Select value={dateFilter} onValueChange={setDateFilter}>
                   <SelectTrigger className="bg-white/10 border-white/20 text-white h-10">
-                    <SelectValue placeholder="Select range" />
+                    <SelectValue placeholder="All Dates" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Dates</SelectItem>
+                    <SelectItem value="today">Today Only</SelectItem>
                     <SelectItem value="last7days">Last 7 Days</SelectItem>
                     <SelectItem value="last30days">Last 30 Days</SelectItem>
-                    <SelectItem value="last90days">Last 90 Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Month Filter */}
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Month</label>
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white h-10">
-                    <SelectValue placeholder="All Months" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Months</SelectItem>
-                    {months.map((month) => (
-                      <SelectItem key={month} value={month}>
-                        {month}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Year Filter */}
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Year</label>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white h-10">
-                    <SelectValue placeholder="All Years" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Years</SelectItem>
-                    {years.map((year) => (
-                      <SelectItem key={year} value={year}>
-                        {year}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="currentyear">Current Year</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {/* Action Buttons - Mobile Stacked */}
+            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={clearFilters}
@@ -680,7 +600,7 @@ export default function CRBanksDashboard() {
               <Button
                 onClick={exportData}
                 className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none"
-                disabled={!data?.transactions || filteredTransactions.length === 0}
+                disabled={!data?.processedData || filteredTransactions.length === 0}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -689,42 +609,36 @@ export default function CRBanksDashboard() {
           </CardContent>
         </Card>
 
-        {/* Transactions Table */}
-        {/* Transactions Table - Mobile Optimized */}
+        {/* Transactions Table - Fixed to show actual data */}
         <Card className="bg-white/10 backdrop-blur-sm border-white/20">
           <CardHeader className="px-4 md:px-6">
             <CardTitle className="text-white text-lg">
               Transactions
-              {data?.transactions ? (
-                <span className="text-sm font-normal">
-                  ({filteredTransactions.length} of {data.totalTransactions})
-                </span>
-              ) : (
-                <span className="text-sm font-normal">(No detailed data yet)</span>
-              )}
+              <span className="text-sm font-normal ml-2">
+                ({filteredTransactions.length} of {data.totalTransactions})
+              </span>
             </CardTitle>
             <CardDescription className="text-gray-300 text-sm">
               Last updated: {new Date(data.updateTime).toLocaleString()}
             </CardDescription>
           </CardHeader>
           <CardContent className="px-2 md:px-6">
-            {data?.transactions && data.transactions.length > 0 ? (
+            {data?.processedData && data.processedData.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-white/20">
                       <TableHead className="text-gray-300 text-xs">Date</TableHead>
-                      <TableHead className="text-gray-300 text-xs hidden sm:table-cell">Bank</TableHead>
-                      <TableHead className="text-gray-300 text-xs hidden md:table-cell">Account</TableHead>
-                      <TableHead className="text-gray-300 text-xs hidden lg:table-cell">Category</TableHead>
+                      <TableHead className="text-gray-300 text-xs hidden sm:table-cell">Transaction #</TableHead>
+                      <TableHead className="text-gray-300 text-xs">Issuer</TableHead>
                       <TableHead className="text-gray-300 text-xs text-right">Amount</TableHead>
-                      <TableHead className="text-gray-300 text-xs">Description</TableHead>
+                      <TableHead className="text-gray-300 text-xs hidden md:table-cell">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredTransactions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-gray-400 py-8 text-sm">
+                        <TableCell colSpan={5} className="text-center text-gray-400 py-8 text-sm">
                           No transactions match your filters
                         </TableCell>
                       </TableRow>
@@ -734,30 +648,34 @@ export default function CRBanksDashboard() {
                           <TableCell className="text-white text-xs">
                             <div className="min-w-0">
                               <div className="truncate">{transaction.date}</div>
-                              {/* Show bank/account on mobile */}
+                              {/* Show transaction number on mobile */}
                               <div className="sm:hidden text-gray-400 text-xs mt-1">
-                                {transaction.bank} - {transaction.account}
+                                #{transaction.transactionNumber}
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-white text-xs hidden sm:table-cell">{transaction.bank}</TableCell>
-                          <TableCell className="text-white text-xs hidden md:table-cell">
-                            {transaction.account}
+                          <TableCell className="text-white text-xs hidden sm:table-cell">
+                            #{transaction.transactionNumber}
                           </TableCell>
-                          <TableCell className="text-white text-xs hidden lg:table-cell">
-                            <Badge variant="outline" className="border-white/20 text-white text-xs">
-                              {transaction.category}
-                            </Badge>
-                          </TableCell>
+                          <TableCell className="text-white text-xs">{transaction.issuer}</TableCell>
                           <TableCell className="text-right font-medium text-green-400 text-xs">
                             <div className="min-w-0">
                               <div>${transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
-                              {/* Show category on mobile */}
-                              <div className="lg:hidden text-gray-400 text-xs mt-1">{transaction.category}</div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-gray-300 text-xs">
-                            <div className="max-w-[120px] md:max-w-xs truncate">{transaction.description}</div>
+                          <TableCell className="text-white text-xs hidden md:table-cell">
+                            <div className="flex gap-1">
+                              {transaction.isToday && (
+                                <Badge variant="outline" className="border-blue-400 text-blue-400 text-xs">
+                                  Today
+                                </Badge>
+                              )}
+                              {transaction.isCurrentYear && (
+                                <Badge variant="outline" className="border-green-400 text-green-400 text-xs">
+                                  Current Year
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
@@ -769,15 +687,7 @@ export default function CRBanksDashboard() {
               <div className="text-center py-8 md:py-12 text-slate-400">
                 <BarChart3 className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 opacity-50" />
                 <p className="text-base md:text-lg font-mono">No transaction data yet</p>
-                <p className="text-sm mt-2 px-4">
-                  Your n8n workflow needs to send a "transactions" array for detailed records.
-                </p>
-                <div className="mt-4 bg-amber-900/20 border border-amber-600/30 rounded-lg p-4 max-w-sm mx-auto">
-                  <p className="text-amber-400 text-sm">
-                    <strong>Note:</strong> Summary data is working. Individual transactions will appear when sent by
-                    n8n.
-                  </p>
-                </div>
+                <p className="text-sm mt-2 px-4">Your n8n workflow needs to send transaction data to the webhook.</p>
               </div>
             )}
           </CardContent>
@@ -786,4 +696,5 @@ export default function CRBanksDashboard() {
     </div>
   )
 }
+
 
