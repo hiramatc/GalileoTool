@@ -295,7 +295,7 @@ export default function CRBanksDashboard() {
   if (!data) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-green-900 to-slate-900">
-        <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
+        <div className="w-full px-4 py-8 relative z-10">
           {/* Header with Navigation */}
           <header className="mb-8">
             <div className="flex items-center gap-3 mb-4">
@@ -346,19 +346,19 @@ export default function CRBanksDashboard() {
         ></div>
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 py-8">
+      <div className="relative z-10 w-full px-3 sm:px-4 py-6 sm:py-8">
         {/* Header with Navigation - Mobile Optimized */}
-        <header className="mb-6 md:mb-8">
-          <div className="flex flex-col gap-4">
+        <header className="mb-4 sm:mb-6 md:mb-8">
+          <div className="flex flex-col gap-3 sm:gap-4">
             {/* Logo and Title Row */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <img
                 src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-xim7Sf7mjX1q0kZdL8yllT6RrzLWCl.png"
                 alt="GALILEO CAPITAL"
-                className="h-6 md:h-12 w-auto filter brightness-0 invert opacity-90"
+                className="h-5 sm:h-6 md:h-12 w-auto filter brightness-0 invert opacity-90 flex-shrink-0"
               />
               <div className="flex-1 min-w-0">
-                <h1 className="text-lg md:text-3xl font-light text-white truncate">CR Banks Dashboard</h1>
+                <h1 className="text-base sm:text-lg md:text-3xl font-light text-white truncate">CR Banks Dashboard</h1>
                 <p className="text-slate-400 font-mono text-xs md:text-sm">COSTA RICA BANKING LIMITS</p>
               </div>
             </div>
@@ -370,17 +370,17 @@ export default function CRBanksDashboard() {
           </div>
         </header>
 
-        {/* Summary Cards - Enhanced with more data */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+        {/* Summary Cards - Mobile First */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
           <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-            <CardHeader className="pb-2 px-4 pt-4">
-              <CardTitle className="text-white text-sm font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 flex-shrink-0" />
+            <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-white text-xs sm:text-sm font-medium flex items-center gap-2">
+                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="truncate">Total Transacted</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="text-xl md:text-2xl font-bold text-white">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">
                 ${data.yearlyTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </div>
               <p className="text-xs text-gray-300 mt-1">This year ({data.totalTransactions} transactions)</p>
@@ -388,12 +388,12 @@ export default function CRBanksDashboard() {
           </Card>
 
           <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-            <CardHeader className="pb-2 px-4 pt-4">
-              <CardTitle className="text-white text-sm font-medium truncate">Remaining Amount</CardTitle>
+            <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-white text-xs sm:text-sm font-medium truncate">Remaining Amount</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
               <div
-                className={`text-xl md:text-2xl font-bold ${remainingAmount > 0 ? "text-green-400" : "text-red-400"}`}
+                className={`text-lg sm:text-xl md:text-2xl font-bold ${remainingAmount > 0 ? "text-green-400" : "text-red-400"}`}
               >
                 ${remainingAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </div>
@@ -401,15 +401,15 @@ export default function CRBanksDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-            <CardHeader className="pb-2 px-4 pt-4">
-              <CardTitle className="text-white text-sm font-medium flex items-center gap-2">
-                <AlertTriangle className={`h-4 w-4 flex-shrink-0 ${getAlertColor(data.alertStatus)}`} />
+          <Card className="bg-white/10 backdrop-blur-sm border-white/20 sm:col-span-2 lg:col-span-1">
+            <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-white text-xs sm:text-sm font-medium flex items-center gap-2">
+                <AlertTriangle className={`h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 ${getAlertColor(data.alertStatus)}`} />
                 <span className="truncate">Percentage Used</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className={`text-xl md:text-2xl font-bold ${getAlertColor(data.alertStatus)}`}>
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+              <div className={`text-lg sm:text-xl md:text-2xl font-bold ${getAlertColor(data.alertStatus)}`}>
                 {data.limitPercentage.toFixed(1)}%
               </div>
               <p className="text-xs text-gray-300 mt-1">
@@ -419,41 +419,41 @@ export default function CRBanksDashboard() {
           </Card>
         </div>
 
-        {/* Monthly Progress Chart - Using actual data */}
-        <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-6 md:mb-8">
-          <CardHeader className="px-4 md:px-6">
-            <CardTitle className="text-white flex items-center gap-2 text-lg md:text-xl">
-              <BarChart3 className="h-5 w-5 flex-shrink-0" />
-              <span className="truncate">Monthly Cumulative Progress</span>
+        {/* Monthly Progress Chart - Mobile Optimized */}
+        <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-4 sm:mb-6 md:mb-8">
+          <CardHeader className="px-3 sm:px-4 md:px-6">
+            <CardTitle className="text-white flex items-center gap-2 text-sm sm:text-lg md:text-xl">
+              <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="truncate">Monthly Progress</span>
             </CardTitle>
-            <CardDescription className="text-gray-300 text-sm">
-              <span className="block">Actual monthly cumulative totals toward $17M limit</span>
+            <CardDescription className="text-gray-300 text-xs sm:text-sm">
+              <span className="block">Monthly cumulative totals toward $17M limit</span>
               {data.projectedLimitDate && (
-                <span className="text-yellow-400 text-xs">• Projected to reach limit: {data.projectedLimitDate}</span>
+                <span className="text-yellow-400 text-xs">• Projected limit: {data.projectedLimitDate}</span>
               )}
             </CardDescription>
           </CardHeader>
-          <CardContent className="px-2 md:px-6 pb-4">
-            <div className="h-[250px] md:h-[300px] w-full">
+          <CardContent className="px-1 sm:px-2 md:px-6 pb-3 sm:pb-4">
+            <div className="h-[200px] sm:h-[250px] md:h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={generateMonthlyChartData()} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                <LineChart data={generateMonthlyChartData()} margin={{ top: 10, right: 5, left: 0, bottom: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
                   <XAxis
                     dataKey="month"
                     stroke="#9CA3AF"
-                    fontSize={10}
-                    tick={{ fontSize: 10 }}
+                    fontSize={8}
+                    tick={{ fontSize: 8 }}
                     angle={-45}
                     textAnchor="end"
-                    height={50}
+                    height={40}
                     interval={0}
                   />
                   <YAxis
                     stroke="#9CA3AF"
-                    fontSize={9}
-                    tick={{ fontSize: 9 }}
+                    fontSize={8}
+                    tick={{ fontSize: 8 }}
                     tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
-                    width={50}
+                    width={40}
                   />
                   <Tooltip
                     formatter={(value: number, name: string) => [
@@ -461,12 +461,12 @@ export default function CRBanksDashboard() {
                       name === "amount" ? "Current" : name === "projected" ? "Projection" : "Limit",
                     ]}
                     labelFormatter={(label) => `Month: ${label}`}
-                    labelStyle={{ color: "#fff", fontSize: "12px" }}
+                    labelStyle={{ color: "#fff", fontSize: "11px" }}
                     contentStyle={{
                       backgroundColor: "#1e293b",
                       border: "1px solid #475569",
-                      fontSize: "12px",
-                      padding: "8px",
+                      fontSize: "11px",
+                      padding: "6px",
                       color: "#fff",
                     }}
                   />
@@ -474,11 +474,11 @@ export default function CRBanksDashboard() {
                     type="monotone"
                     dataKey="amount"
                     stroke="#10B981"
-                    strokeWidth={3}
+                    strokeWidth={2}
                     dot={(props) => {
                       const { payload } = props
                       return payload?.hasData ? (
-                        <circle {...props} fill="#10B981" strokeWidth={2} r={4} />
+                        <circle {...props} fill="#10B981" strokeWidth={1} r={3} />
                       ) : (
                         <circle {...props} fill="transparent" strokeWidth={0} r={0} />
                       )
@@ -510,35 +510,35 @@ export default function CRBanksDashboard() {
           </CardContent>
         </Card>
 
-        {/* Simplified Filters and Controls */}
-        <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-6">
-          <CardHeader className="px-4 md:px-6">
-            <CardTitle className="text-white flex items-center gap-2 text-lg">
-              <Filter className="h-5 w-5 flex-shrink-0" />
+        {/* Simplified Filters and Controls - Mobile First */}
+        <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-4 sm:mb-6">
+          <CardHeader className="px-3 sm:px-4 md:px-6">
+            <CardTitle className="text-white flex items-center gap-2 text-sm sm:text-lg">
+              <Filter className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
               <span className="truncate">Transaction Filters</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 md:px-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-4">
+          <CardContent className="px-3 sm:px-4 md:px-6">
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-4">
               {/* Search */}
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Search</label>
+              <div>
+                <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Search</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="Search transactions..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-10"
+                    className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-10 text-sm"
                   />
                 </div>
               </div>
 
               {/* Date Filter */}
               <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Date Filter</label>
+                <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Date Filter</label>
                 <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white h-10">
+                  <SelectTrigger className="bg-white/10 border-white/20 text-white h-10 text-sm">
                     <SelectValue placeholder="All Dates" />
                   </SelectTrigger>
                   <SelectContent>
@@ -551,22 +551,22 @@ export default function CRBanksDashboard() {
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            {/* Action Buttons - Mobile Stacked */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
               <Button
                 onClick={clearFilters}
                 variant="outline"
-                className="border-white/20 text-white hover:bg-white/10 bg-transparent flex-1 sm:flex-none"
+                className="border-white/20 text-white hover:bg-white/10 bg-transparent text-sm h-9"
               >
                 Clear Filters
               </Button>
-              <Button onClick={fetchData} className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none">
+              <Button onClick={fetchData} className="bg-green-600 hover:bg-green-700 text-sm h-9">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
               <Button
                 onClick={exportData}
-                className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none"
+                className="bg-blue-600 hover:bg-blue-700 text-sm h-9"
                 disabled={!data?.processedData || filteredTransactions.length === 0}
               >
                 <Download className="h-4 w-4 mr-2" />
@@ -576,20 +576,20 @@ export default function CRBanksDashboard() {
           </CardContent>
         </Card>
 
-        {/* Transactions Table - Fixed to show actual data */}
+        {/* Transactions Table - Mobile Optimized */}
         <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-          <CardHeader className="px-4 md:px-6">
-            <CardTitle className="text-white text-lg">
+          <CardHeader className="px-3 sm:px-4 md:px-6">
+            <CardTitle className="text-white text-sm sm:text-lg">
               Transactions
-              <span className="text-sm font-normal ml-2">
+              <span className="text-xs sm:text-sm font-normal ml-2">
                 ({filteredTransactions.length} of {data.totalTransactions})
               </span>
             </CardTitle>
-            <CardDescription className="text-gray-300 text-sm">
+            <CardDescription className="text-gray-300 text-xs sm:text-sm">
               Last updated: {new Date(data.updateTime).toLocaleString()}
             </CardDescription>
           </CardHeader>
-          <CardContent className="px-2 md:px-6">
+          <CardContent className="px-1 sm:px-2 md:px-6">
             {data?.processedData && data.processedData.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
@@ -605,7 +605,7 @@ export default function CRBanksDashboard() {
                   <TableBody>
                     {filteredTransactions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-gray-400 py-8 text-sm">
+                        <TableCell colSpan={5} className="text-center text-gray-400 py-8 text-xs sm:text-sm">
                           No transactions match your filters
                         </TableCell>
                       </TableRow>
@@ -651,12 +651,14 @@ export default function CRBanksDashboard() {
                 </Table>
               </div>
             ) : (
-              <div className="text-center py-8 md:py-12 text-slate-400">
-                <BarChart3 className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 opacity-50" />
-                <p className="text-base md:text-lg font-mono">No transaction data yet</p>
-                <p className="text-sm mt-2 px-4">Your n8n workflow needs to send transaction data to the webhook.</p>
-                <div className="mt-4 bg-amber-900/20 border border-amber-600/30 rounded-lg p-4 max-w-sm mx-auto">
-                  <p className="text-amber-400 text-sm">
+              <div className="text-center py-6 sm:py-8 md:py-12 text-slate-400">
+                <BarChart3 className="w-8 h-8 sm:w-12 sm:h-12 md:w-16 md:h-16 mx-auto mb-4 opacity-50" />
+                <p className="text-sm sm:text-base md:text-lg font-mono">No transaction data yet</p>
+                <p className="text-xs sm:text-sm mt-2 px-4">
+                  Your n8n workflow needs to send transaction data to the webhook.
+                </p>
+                <div className="mt-4 bg-amber-900/20 border border-amber-600/30 rounded-lg p-3 sm:p-4 max-w-sm mx-auto">
+                  <p className="text-amber-400 text-xs sm:text-sm">
                     <strong>Debug:</strong> Check if your n8n workflow is sending data to{" "}
                     <code>/api/webhooks/cr-banks</code> with the correct structure.
                   </p>
