@@ -109,14 +109,39 @@ export default function USBanksDashboard() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const response = await fetch("/api/webhooks/us-banks")
-      const result = await response.json()
+      // First, trigger the n8n workflow to fetch fresh data
+      const triggerResponse = await fetch("/api/trigger-refresh/us-banks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
 
-      if (result.success) {
-        setData(result.data)
-        setFilteredTransactions(result.data.processedData)
+      if (triggerResponse.ok) {
+        // Wait a moment for n8n to process and send data back
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+
+        // Now fetch the updated data
+        const response = await fetch("/api/webhooks/us-banks")
+        const result = await response.json()
+
+        if (result.success) {
+          setData(result.data)
+          setFilteredTransactions(result.data.processedData)
+        } else {
+          console.error("Failed to fetch banking data:", result.message)
+        }
       } else {
-        console.error("Failed to fetch banking data:", result.message)
+        // Fallback to just fetching existing data if trigger fails
+        const response = await fetch("/api/webhooks/us-banks")
+        const result = await response.json()
+
+        if (result.success) {
+          setData(result.data)
+          setFilteredTransactions(result.data.processedData)
+        } else {
+          console.error("Failed to fetch banking data:", result.message)
+        }
       }
     } catch (error) {
       console.error("Error fetching banking data:", error)
@@ -313,7 +338,7 @@ export default function USBanksDashboard() {
             </p>
             <Button onClick={fetchData} className="bg-blue-600 hover:bg-blue-700">
               <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh Data
+              {loading ? "Refreshing..." : "Refresh Data"}
             </Button>
           </div>
         </div>
@@ -582,7 +607,7 @@ export default function USBanksDashboard() {
               </Button>
               <Button onClick={fetchData} className="bg-blue-600 hover:bg-blue-700">
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Data
+                {loading ? "Refreshing..." : "Refresh Data"}
               </Button>
               <Button onClick={exportData} className="bg-green-600 hover:bg-green-700">
                 <Download className="h-4 w-4 mr-2" />
