@@ -67,19 +67,45 @@ export default function CRBanksDashboard() {
     checkUserRole()
   }, [])
 
-  // Fetch CR banking data
+  // Enhanced fetch data function that triggers n8n workflow
   const fetchData = async () => {
     setLoading(true)
     try {
-      const response = await fetch("/api/webhooks/cr-banks")
-      const result = await response.json()
+      // First, trigger the n8n workflow to fetch fresh data
+      const triggerResponse = await fetch("/api/trigger-refresh/cr-banks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
 
-      if (result.success) {
-        console.log("CR Banks data received:", result.data)
-        setData(result.data)
-        setFilteredTransactions(result.data.processedData || [])
+      if (triggerResponse.ok) {
+        // Wait a moment for n8n to process and send data back
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+
+        // Now fetch the updated data
+        const response = await fetch("/api/webhooks/cr-banks")
+        const result = await response.json()
+
+        if (result.success) {
+          console.log("CR Banks data received:", result.data)
+          setData(result.data)
+          setFilteredTransactions(result.data.processedData || [])
+        } else {
+          console.error("Failed to fetch CR banking data:", result.message)
+        }
       } else {
-        console.error("Failed to fetch CR banking data:", result.message)
+        // Fallback to just fetching existing data if trigger fails
+        const response = await fetch("/api/webhooks/cr-banks")
+        const result = await response.json()
+
+        if (result.success) {
+          console.log("CR Banks data received:", result.data)
+          setData(result.data)
+          setFilteredTransactions(result.data.processedData || [])
+        } else {
+          console.error("Failed to fetch CR banking data:", result.message)
+        }
       }
     } catch (error) {
       console.error("Error fetching CR banking data:", error)
@@ -562,7 +588,7 @@ export default function CRBanksDashboard() {
               </Button>
               <Button onClick={fetchData} className="bg-green-600 hover:bg-green-700 text-sm h-9">
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
+                {loading ? "Refreshing..." : "Refresh"}
               </Button>
               <Button
                 onClick={exportData}
