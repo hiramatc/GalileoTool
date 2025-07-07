@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Download, TrendingUp, AlertTriangle, BarChart3, Search, Filter } from "lucide-react"
+import { RefreshCw, Download, TrendingUp, AlertTriangle, BarChart3, Search, Filter, AlertCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
@@ -38,20 +38,20 @@ interface CRBankingData {
   monthTotal: number
 }
 
-const YEARLY_LIMIT = 17000000 // $17 million limit
+const YEARLY_LIMIT = 17000000
 
 export default function CRBanksDashboard() {
   const [data, setData] = useState<CRBankingData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
 
-  // Simplified filter states
   const [searchTerm, setSearchTerm] = useState("")
   const [dateFilter, setDateFilter] = useState<string>("last15days")
   const [showCurrentYearOnly, setShowCurrentYearOnly] = useState(false)
 
-  // Check if user is admin
   useEffect(() => {
     const checkUserRole = async () => {
       try {
@@ -67,78 +67,95 @@ export default function CRBanksDashboard() {
     checkUserRole()
   }, [])
 
-  // Enhanced fetch data function that triggers n8n workflow
-  const fetchData = async () => {
-    setLoading(true)
+  // Fetch existing CR banking data
+  const fetchExistingData = async () => {
     try {
-      console.log("Starting CR Banks data refresh...")
+      console.log("Fetching existing CR Banks data...")
+      const response = await fetch("/api/webhooks/cr-banks")
+      const result = await response.json()
 
-      // First, trigger the n8n workflow to fetch fresh data
-      const triggerResponse = await fetch("/api/trigger-refresh/cr-banks", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (triggerResponse.ok) {
-        console.log("CR Banks n8n workflow triggered successfully")
-        // Wait a moment for n8n to process and send data back
-        await new Promise((resolve) => setTimeout(resolve, 5000)) // Increased wait time
-
-        // Now fetch the updated data
-        const response = await fetch("/api/webhooks/cr-banks")
-        const result = await response.json()
-
-        if (result.success) {
-          console.log("Fresh CR Banks data received:", result.data)
-          setData(result.data)
-          setFilteredTransactions(result.data.processedData || [])
-        } else {
-          console.error("Failed to fetch CR banking data:", result.message)
-        }
+      if (result.success && result.data) {
+        console.log("CR Banks data received:", result.data)
+        setData(result.data)
+        setFilteredTransactions(result.data.processedData || [])
+        setRefreshError(null)
+        return true
       } else {
-        console.log("CR Banks n8n trigger failed, fetching existing data")
-        // Fallback to just fetching existing data if trigger fails
-        const response = await fetch("/api/webhooks/cr-banks")
-        const result = await response.json()
-
-        if (result.success) {
-          console.log("CR Banks existing data received:", result.data)
-          setData(result.data)
-          setFilteredTransactions(result.data.processedData || [])
-        } else {
-          console.error("Failed to fetch CR banking data:", result.message)
-        }
+        console.error("Failed to fetch CR banking data:", result.message)
+        setRefreshError(result.message || "Failed to fetch data")
+        return false
       }
     } catch (error) {
       console.error("Error fetching CR banking data:", error)
-      // Fallback to existing data on error
-      try {
-        const response = await fetch("/api/webhooks/cr-banks")
-        const result = await response.json()
-        if (result.success) {
-          setData(result.data)
-          setFilteredTransactions(result.data.processedData || [])
-        }
-      } catch (fallbackError) {
-        console.error("CR Banks fallback fetch also failed:", fallbackError)
-      }
-    } finally {
-      setLoading(false)
+      setRefreshError(error instanceof Error ? error.message : "Network error")
+      return false
     }
   }
 
-  // Parse date for filtering
+  // Enhanced refresh function with n8n trigger
+  const refreshData = async () => {
+    setRefreshing(true)
+    setRefreshError(null)
+
+    try {
+      console.log("Starting CR Banks refresh...")
+
+      // First, try to trigger n8n workflow
+      try {
+        console.log("Attempting to trigger CR Banks n8n workflow...")
+        const triggerResponse = await fetch("/api/trigger-refresh/cr-banks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        const triggerResult = await triggerResponse.json()
+        console.log("CR Banks trigger response:", triggerResult)
+
+        if (triggerResponse.ok && triggerResult.success) {
+          console.log("CR Banks n8n workflow triggered successfully, waiting for data...")
+          // Wait for n8n to process
+          await new Promise((resolve) => setTimeout(resolve, 3000))
+        } else {
+          console.warn("CR Banks n8n trigger failed:", triggerResult.message)
+          setRefreshError(`n8n trigger failed: ${triggerResult.message}`)
+        }
+      } catch (triggerError) {
+        console.warn("CR Banks n8n trigger error:", triggerError)
+        setRefreshError(`n8n trigger error: ${triggerError instanceof Error ? triggerError.message : "Unknown error"}`)
+      }
+
+      // Always try to fetch the latest data (whether n8n worked or not)
+      const dataFetched = await fetchExistingData()
+
+      if (!dataFetched) {
+        throw new Error("Failed to fetch updated data")
+      }
+
+      console.log("CR Banks refresh completed successfully")
+    } catch (error) {
+      console.error("CR Banks refresh failed:", error)
+      setRefreshError(error instanceof Error ? error.message : "Refresh failed")
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // Initial data fetch
+  const fetchData = async () => {
+    setLoading(true)
+    await fetchExistingData()
+    setLoading(false)
+  }
+
   const parseDate = (dateString: string) => {
-    // Handle CR date format (17/01/2024 or 04/Jul/2025)
     try {
       const parts = dateString.split("/")
       const day = Number.parseInt(parts[0])
       let month, year
 
       if (isNaN(Number.parseInt(parts[1]))) {
-        // Month name format (04/Jul/2025)
         const months = {
           Jan: 0,
           Feb: 1,
@@ -156,7 +173,6 @@ export default function CRBanksDashboard() {
         month = months[parts[1] as keyof typeof months]
         year = Number.parseInt(parts[2])
       } else {
-        // Numeric format (17/01/2024)
         month = Number.parseInt(parts[1]) - 1
         year = Number.parseInt(parts[2])
       }
@@ -167,7 +183,6 @@ export default function CRBanksDashboard() {
     }
   }
 
-  // Apply filters
   useEffect(() => {
     if (!data?.processedData) {
       setFilteredTransactions([])
@@ -176,7 +191,6 @@ export default function CRBanksDashboard() {
 
     let filtered = data.processedData
 
-    // Search term filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
       filtered = filtered.filter(
@@ -187,12 +201,10 @@ export default function CRBanksDashboard() {
       )
     }
 
-    // Current year filter
     if (showCurrentYearOnly) {
       filtered = filtered.filter((t) => t.isCurrentYear)
     }
 
-    // Date filter
     if (dateFilter !== "all") {
       const today = new Date()
       switch (dateFilter) {
@@ -217,20 +229,16 @@ export default function CRBanksDashboard() {
       }
     }
 
-    // Sort by date (newest first)
     filtered.sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime())
-
     setFilteredTransactions(filtered)
   }, [data, searchTerm, dateFilter, showCurrentYearOnly])
 
-  // Clear filters
   const clearFilters = () => {
     setSearchTerm("")
     setDateFilter("last15days")
     setShowCurrentYearOnly(false)
   }
 
-  // Export filtered data
   const exportData = () => {
     if (!filteredTransactions.length) {
       alert("No transaction data available to export")
@@ -260,14 +268,11 @@ export default function CRBanksDashboard() {
     window.URL.revokeObjectURL(url)
   }
 
-  // Generate monthly progression chart data from actual monthlyTotals
   const generateMonthlyChartData = () => {
     if (!data?.monthlyTotals) return []
 
     const currentDate = new Date()
     const currentYear = currentDate.getFullYear()
-    const currentMonth = currentDate.getMonth()
-
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
     const chartData = []
@@ -282,18 +287,10 @@ export default function CRBanksDashboard() {
         cumulativeTotal += monthAmount
       }
 
-      const projected = null
-      // No projection needed
-      // if (i > currentMonth && data.monthlyAverage > 0) {
-      //   // Project future months based on average
-      //   const projectedCumulative = data.monthlyAverage * (i + 1)
-      //   projected = projectedCumulative
-      // }
-
       chartData.push({
         month: months[i],
         amount: cumulativeTotal,
-        projected: projected,
+        projected: null,
         limit: YEARLY_LIMIT,
         monthlyAmount: monthAmount,
         hasData: monthAmount > 0,
@@ -303,7 +300,6 @@ export default function CRBanksDashboard() {
     return chartData
   }
 
-  // Calculate remaining amount and get alert color
   const remainingAmount = YEARLY_LIMIT - (data?.yearlyTotal || 0)
   const getAlertColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -337,7 +333,6 @@ export default function CRBanksDashboard() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-green-900 to-slate-900">
         <div className="w-full px-4 py-8 relative z-10">
-          {/* Header with Navigation */}
           <header className="mb-8">
             <div className="flex items-center gap-3 mb-4">
               <img
@@ -362,9 +357,19 @@ export default function CRBanksDashboard() {
               Your n8n workflow hasn't sent any data to the CR Banks webhook yet. Make sure your automation is running
               and sending data to the correct endpoint.
             </p>
-            <Button onClick={fetchData} className="bg-green-600 hover:bg-green-700" disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              {loading ? "Refreshing..." : "Refresh Data"}
+
+            {refreshError && (
+              <div className="mb-4 p-3 bg-red-900/20 border border-red-600/30 rounded-lg max-w-md">
+                <div className="flex items-center gap-2 text-red-400 text-sm">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Error: {refreshError}</span>
+                </div>
+              </div>
+            )}
+
+            <Button onClick={refreshData} className="bg-green-600 hover:bg-green-700" disabled={refreshing}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing..." : "Refresh Data"}
             </Button>
           </div>
         </div>
@@ -374,7 +379,6 @@ export default function CRBanksDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-green-900 to-slate-900">
-      {/* Background Effects */}
       <div className="absolute inset-0 opacity-5">
         <div
           style={{
@@ -388,10 +392,8 @@ export default function CRBanksDashboard() {
       </div>
 
       <div className="relative z-10 w-full px-3 sm:px-4 py-6 sm:py-8">
-        {/* Header with Navigation - Mobile Optimized */}
         <header className="mb-4 sm:mb-6 md:mb-8">
           <div className="flex flex-col gap-3 sm:gap-4">
-            {/* Logo and Title Row */}
             <div className="flex items-center gap-2 sm:gap-3">
               <img
                 src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-xim7Sf7mjX1q0kZdL8yllT6RrzLWCl.png"
@@ -403,15 +405,12 @@ export default function CRBanksDashboard() {
                 <p className="text-slate-400 font-mono text-xs md:text-sm">COSTA RICA BANKING LIMITS</p>
               </div>
             </div>
-
-            {/* Navigation Row */}
             <div className="flex justify-end">
               <Navigation currentPage="cr-banks" isAdmin={isAdmin} />
             </div>
           </div>
         </header>
 
-        {/* Summary Cards - Mobile First */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
           <Card className="bg-white/10 backdrop-blur-sm border-white/20">
             <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
@@ -460,7 +459,6 @@ export default function CRBanksDashboard() {
           </Card>
         </div>
 
-        {/* Monthly Progress Chart - Mobile Optimized */}
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-4 sm:mb-6 md:mb-8">
           <CardHeader className="px-3 sm:px-4 md:px-6">
             <CardTitle className="text-white flex items-center gap-2 text-sm sm:text-lg md:text-xl">
@@ -551,7 +549,6 @@ export default function CRBanksDashboard() {
           </CardContent>
         </Card>
 
-        {/* Simplified Filters and Controls - Mobile First */}
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-4 sm:mb-6">
           <CardHeader className="px-3 sm:px-4 md:px-6">
             <CardTitle className="text-white flex items-center gap-2 text-sm sm:text-lg">
@@ -561,7 +558,6 @@ export default function CRBanksDashboard() {
           </CardHeader>
           <CardContent className="px-3 sm:px-4 md:px-6">
             <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-4">
-              {/* Search */}
               <div>
                 <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Search</label>
                 <div className="relative">
@@ -575,7 +571,6 @@ export default function CRBanksDashboard() {
                 </div>
               </div>
 
-              {/* Date Filter */}
               <div>
                 <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Date Filter</label>
                 <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -592,7 +587,15 @@ export default function CRBanksDashboard() {
               </div>
             </div>
 
-            {/* Action Buttons - Mobile Stacked */}
+            {refreshError && (
+              <div className="mb-4 p-3 bg-red-900/20 border border-red-600/30 rounded-lg">
+                <div className="flex items-center gap-2 text-red-400 text-sm">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Refresh Error: {refreshError}</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
               <Button
                 onClick={clearFilters}
@@ -601,113 +604,73 @@ export default function CRBanksDashboard() {
               >
                 Clear Filters
               </Button>
-              <Button onClick={fetchData} className="bg-green-600 hover:bg-green-700" disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                {loading ? "Refreshing..." : "Refresh"}
-              </Button>
               <Button
-                onClick={exportData}
-                className="bg-blue-600 hover:bg-blue-700 text-sm h-9"
-                disabled={!data?.processedData || filteredTransactions.length === 0}
+                onClick={refreshData}
+                className="bg-green-600 hover:bg-green-700 text-sm h-9"
+                disabled={refreshing}
               >
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+                {refreshing ? "Refreshing..." : "Refresh Data"}
+              </Button>
+              <Button onClick={exportData} className="bg-blue-600 hover:bg-blue-700 text-sm h-9">
                 <Download className="h-4 w-4 mr-2" />
-                Export
+                Export CSV
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Transactions Table - Mobile Optimized */}
-        <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-          <CardHeader className="px-3 sm:px-4 md:px-6">
-            <CardTitle className="text-white text-sm sm:text-lg">
-              Transactions
-              <span className="text-xs sm:text-sm font-normal ml-2">
-                ({filteredTransactions.length} of {data.totalTransactions})
-              </span>
-            </CardTitle>
-            <CardDescription className="text-gray-300 text-xs sm:text-sm">
-              Last updated: {new Date(data.updateTime).toLocaleString()}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-1 sm:px-2 md:px-6">
-            {data?.processedData && data.processedData.length > 0 ? (
+        {filteredTransactions.length > 0 && (
+          <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+            <CardHeader className="px-3 sm:px-4 md:px-6">
+              <CardTitle className="text-white text-sm sm:text-lg">
+                Transactions ({filteredTransactions.length} of {data.totalTransactions})
+              </CardTitle>
+              <CardDescription className="text-gray-300 text-xs sm:text-sm">
+                Last updated: {new Date(data.updateTime).toLocaleString()}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-1 sm:px-2 md:px-6">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-white/20">
-                      <TableHead className="text-gray-300 text-xs">Date</TableHead>
-                      <TableHead className="text-gray-300 text-xs hidden sm:table-cell">Transaction #</TableHead>
-                      <TableHead className="text-gray-300 text-xs">Issuer</TableHead>
-                      <TableHead className="text-gray-300 text-xs text-right">Amount</TableHead>
-                      <TableHead className="text-gray-300 text-xs hidden md:table-cell">Status</TableHead>
+                      <TableHead className="text-gray-300 text-xs sm:text-sm px-2 sm:px-4">Date</TableHead>
+                      <TableHead className="text-gray-300 text-xs sm:text-sm px-2 sm:px-4">Transaction #</TableHead>
+                      <TableHead className="text-gray-300 text-xs sm:text-sm px-2 sm:px-4">Issuer</TableHead>
+                      <TableHead className="text-gray-300 text-xs sm:text-sm text-right px-2 sm:px-4">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredTransactions.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-gray-400 py-8 text-xs sm:text-sm">
-                          No transactions match your filters
+                    {filteredTransactions.map((transaction, index) => (
+                      <TableRow key={index} className="border-white/10">
+                        <TableCell className="text-white text-xs sm:text-sm px-2 sm:px-4">
+                          {transaction.isToday && (
+                            <Badge variant="secondary" className="mr-1 sm:mr-2 bg-green-600 text-xs">
+                              Today
+                            </Badge>
+                          )}
+                          <span className="text-xs sm:text-sm">{transaction.date}</span>
+                        </TableCell>
+                        <TableCell className="text-white text-xs sm:text-sm px-2 sm:px-4 font-mono">
+                          {transaction.transactionNumber}
+                        </TableCell>
+                        <TableCell className="text-white text-xs sm:text-sm px-2 sm:px-4">
+                          <Badge variant="outline" className="border-white/20 text-white text-xs">
+                            {transaction.issuer}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium text-green-400 text-xs sm:text-sm px-2 sm:px-4">
+                          ${transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      filteredTransactions.map((transaction, index) => (
-                        <TableRow key={index} className="border-white/10">
-                          <TableCell className="text-white text-xs">
-                            <div className="min-w-0">
-                              <div className="truncate">{transaction.date}</div>
-                              {/* Show transaction number on mobile */}
-                              <div className="sm:hidden text-gray-400 text-xs mt-1">
-                                #{transaction.transactionNumber}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-white text-xs hidden sm:table-cell">
-                            #{transaction.transactionNumber}
-                          </TableCell>
-                          <TableCell className="text-white text-xs">{transaction.issuer}</TableCell>
-                          <TableCell className="text-right font-medium text-green-400 text-xs">
-                            <div className="min-w-0">
-                              <div>${transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-white text-xs hidden md:table-cell">
-                            <div className="flex gap-1">
-                              {transaction.isToday && (
-                                <Badge variant="outline" className="border-blue-400 text-blue-400 text-xs">
-                                  Today
-                                </Badge>
-                              )}
-                              {transaction.isCurrentYear && (
-                                <Badge variant="outline" className="border-green-400 text-green-400 text-xs">
-                                  Current Year
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                    ))}
                   </TableBody>
                 </Table>
               </div>
-            ) : (
-              <div className="text-center py-6 sm:py-8 md:py-12 text-slate-400">
-                <BarChart3 className="w-8 h-8 sm:w-12 sm:h-12 md:w-16 md:h-16 mx-auto mb-4 opacity-50" />
-                <p className="text-sm sm:text-base md:text-lg font-mono">No transaction data yet</p>
-                <p className="text-xs sm:text-sm mt-2 px-4">
-                  Your n8n workflow needs to send transaction data to the webhook.
-                </p>
-                <div className="mt-4 bg-amber-900/20 border border-amber-600/30 rounded-lg p-3 sm:p-4 max-w-sm mx-auto">
-                  <p className="text-amber-400 text-xs sm:text-sm">
-                    <strong>Debug:</strong> Check if your n8n workflow is sending data to{" "}
-                    <code>/api/webhooks/cr-banks</code> with the correct structure.
-                  </p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
