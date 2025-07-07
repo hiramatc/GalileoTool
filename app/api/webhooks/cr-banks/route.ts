@@ -1,85 +1,78 @@
-// app/api/webhooks/cr-banks/route.ts
+import { type NextRequest, NextResponse } from "next/server"
 
-import { NextRequest, NextResponse } from 'next/server';
-
-// In-memory storage for CR banking data
-let crBanksData: any = null;
-let lastUpdated: string = '';
+// In-memory storage for CR banking data (in production, use a database)
+let crBankingData: any = null
+let lastUpdated: string | null = null
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse the incoming data from n8n
-    const data = await request.json();
-    
-    // Store the data in memory
-    crBanksData = data;
-    lastUpdated = new Date().toISOString();
-    
-    // Log for debugging
-    console.log('✅ CR Banks data updated:', {
-      totalTransactions: data.totalTransactions,
-      yearlyTotal: data.yearlyTotal,
-      limitPercentage: data.limitPercentage,
-      alertStatus: data.alertStatus,
-      updateTime: data.updateTime
-    });
-    
-    // Return success response with key metrics
+    console.log("CR Banks webhook received data")
+    const data = await request.json()
+
+    // Store the received data
+    crBankingData = data
+    lastUpdated = new Date().toISOString()
+
+    console.log("CR Banks data stored successfully:", {
+      totalTransactions: data.totalTransactions || 0,
+      yearlyTotal: data.yearlyTotal || 0,
+      updateTime: lastUpdated,
+    })
+
     return NextResponse.json({
       success: true,
-      message: 'CR Banks data updated successfully',
+      message: "CR Banks data received and stored successfully",
       timestamp: lastUpdated,
-      receivedData: {
-        totalTransactions: data.totalTransactions,
-        yearlyTotal: data.yearlyTotal,
-        limitPercentage: data.limitPercentage.toFixed(1),
-        alertStatus: data.alertStatus,
-        todayTransactions: data.todayTransactionCount
-      }
-    });
-    
+    })
   } catch (error) {
-    console.error('❌ Error processing CR Banks webhook:', error);
-    
+    console.error("Error processing CR Banks webhook:", error)
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to process CR Banks data',
-        message: error instanceof Error ? error.message : 'Unknown error'
+        message: "Failed to process webhook data",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
-    );
+      { status: 500 },
+    )
   }
 }
 
-// GET endpoint to retrieve current CR banking data (for dashboard)
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    if (!crBanksData) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'No CR banking data available yet'
-        },
-        { status: 404 }
-      );
+    console.log("CR Banks GET request - checking for data...")
+
+    if (!crBankingData) {
+      console.log("No CR Banks data available yet")
+      return NextResponse.json({
+        success: false,
+        message: "No CR banking data available yet. Waiting for n8n workflow to send data.",
+        data: null,
+        lastUpdated: null,
+      })
     }
-    
+
+    console.log("Returning CR Banks data:", {
+      totalTransactions: crBankingData.totalTransactions || 0,
+      yearlyTotal: crBankingData.yearlyTotal || 0,
+      lastUpdated,
+    })
+
     return NextResponse.json({
       success: true,
-      data: crBanksData,
-      lastUpdated: lastUpdated
-    });
-    
+      message: "CR Banks data retrieved successfully",
+      data: crBankingData,
+      lastUpdated,
+    })
   } catch (error) {
-    console.error('❌ Error retrieving CR Banks data:', error);
-    
+    console.error("Error retrieving CR Banks data:", error)
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to retrieve CR Banks data'
+        message: "Failed to retrieve CR banking data",
+        error: error instanceof Error ? error.message : "Unknown error",
+        data: null,
       },
-      { status: 500 }
-    );
+      { status: 500 },
+    )
   }
 }
