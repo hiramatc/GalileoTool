@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { trackSearch } from "@/lib/users"
-import { Navigation } from "@/components/navigation"
+import { UnifiedLayout } from "@/components/unified-layout"
 
 // Financial particle component with currency symbols
 const FinancialParticle = ({ delay, symbol }: { delay: number; symbol: string }) => (
@@ -87,23 +87,6 @@ export default function ClientSearch() {
   const [results, setResults] = useState<any>(null)
   const [error, setError] = useState("")
   const [financialParticles, setFinancialParticles] = useState<Array<{ id: number; symbol: string }>>([])
-  const [isAdmin, setIsAdmin] = useState(false)
-
-  // Check if user is admin
-  useEffect(() => {
-    const checkUserRole = async () => {
-      try {
-        const response = await fetch("/api/current-user")
-        if (response.ok) {
-          const userData = await response.json()
-          setIsAdmin(userData.isAdmin || false)
-        }
-      } catch (error) {
-        console.error("Error checking user role:", error)
-      }
-    }
-    checkUserRole()
-  }, [])
 
   // Generate financial particles on mount
   useEffect(() => {
@@ -203,58 +186,21 @@ export default function ClientSearch() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative overflow-hidden">
-      {/* Financial Chart Pattern Background */}
-      <ChartPattern />
+    <UnifiedLayout title="Client Portfolio" currentPage="client-search">
+      <div className="relative">
+        {/* Financial Chart Pattern Background */}
+        <ChartPattern />
 
-      {/* Animated Financial Particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {financialParticles.map((particle) => (
-          <FinancialParticle key={particle.id} delay={particle.id * 0.2} symbol={particle.symbol} />
-        ))}
-      </div>
-
-      {/* Subtle grid pattern */}
-      <div
-        className="absolute inset-0 opacity-5"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px)
-          `,
-          backgroundSize: "50px 50px",
-        }}
-      ></div>
-
-      {/* Floating financial orbs */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl animate-pulse"></div>
-      <div
-        className="absolute bottom-20 right-10 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl animate-pulse"
-        style={{ animationDelay: "3s" }}
-      ></div>
-
-      <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
-        {/* Header with Navigation */}
-        <header className="flex flex-col md:flex-row md:justify-between md:items-center mb-16 animate-fade-in">
-          <div className="flex items-center gap-4 mb-4 md:mb-0">
-            <img
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-xim7Sf7mjX1q0kZdL8yllT6RrzLWCl.png"
-              alt="GALILEO CAPITAL"
-              className="h-12 md:h-16 w-auto filter brightness-0 invert opacity-90 hover:opacity-100 transition-opacity duration-300"
-            />
-            <div className="hidden md:flex items-center gap-2 bg-slate-800/50 backdrop-blur-sm px-3 py-1 rounded-full border border-slate-600/30">
-              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-              <span className="text-xs font-mono text-slate-300">SECURE EXCHANGE</span>
-            </div>
-          </div>
-          <div className="relative">
-            <Navigation currentPage="client-search" isAdmin={isAdmin} />
-          </div>
-        </header>
+        {/* Animated Financial Particles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {financialParticles.map((particle) => (
+            <FinancialParticle key={particle.id} delay={particle.id * 0.2} symbol={particle.symbol} />
+          ))}
+        </div>
 
         {/* Main Content */}
-        <main className="text-center">
-          <div className="animate-fade-in-up">
+        <div className="relative z-10">
+          <div className="text-center mb-16">
             <h1 className="text-5xl md:text-7xl font-light mb-6 leading-tight tracking-tight">
               Client{" "}
               <span className="font-bold bg-gradient-to-r from-amber-400 to-yellow-500 bg-clip-text text-transparent">
@@ -286,7 +232,7 @@ export default function ClientSearch() {
             <div className="flex gap-4 mb-6 max-md:flex-col">
               <Input
                 type="text"
-                placeholder="Enter client first name (case sensitive)"
+                placeholder="Search by client's name or business name"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={handleKeyPress}
@@ -385,7 +331,7 @@ export default function ClientSearch() {
                 <div className="text-left space-y-6">
                   <div className="flex items-start gap-4 p-4 rounded-2xl bg-slate-700/20 hover:bg-slate-700/30 transition-colors duration-300 border border-slate-600/20">
                     <span className="text-amber-400 font-bold text-2xl min-w-[2rem] font-mono">1.</span>
-                    <p className="text-lg md:text-xl font-light">Search by client's first name only</p>
+                    <p className="text-lg md:text-xl font-light">Search by client's name or business name</p>
                   </div>
                   <div className="flex items-start gap-4 p-4 rounded-2xl bg-slate-700/20 hover:bg-slate-700/30 transition-colors duration-300 border border-slate-600/20">
                     <span className="text-amber-400 font-bold text-2xl min-w-[2rem] font-mono">2.</span>
@@ -413,10 +359,9 @@ export default function ClientSearch() {
               </div>
             </div>
           )}
-        </main>
-      </div>
+        </div>
 
-      <style jsx>{`
+        <style jsx>{`
         @keyframes fade-in {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -460,6 +405,8 @@ export default function ClientSearch() {
           animation: shake 0.5s ease-in-out;
         }
       `}</style>
-    </div>
+      </div>
+    </UnifiedLayout>
   )
 }
+
