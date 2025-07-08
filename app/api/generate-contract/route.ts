@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import puppeteer from "puppeteer"
 
 type ContractData = {
   companyName: string
@@ -18,17 +19,80 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing contract data" }, { status: 400 })
     }
 
+    // Generate HTML content
     const contractHTML = getContractHTML(data)
 
-    return new NextResponse(contractHTML, {
+    // Convert HTML to PDF using Puppeteer with enhanced configuration
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--no-first-run",
+        "--no-zygote",
+        "--disable-gpu",
+      ],
+    })
+
+    const page = await browser.newPage()
+
+    // Set viewport for consistent rendering
+    await page.setViewport({ width: 1200, height: 1600 })
+
+    // Set content with proper wait conditions
+    await page.setContent(contractHTML, {
+      waitUntil: ["networkidle0", "domcontentloaded"],
+      timeout: 30000,
+    })
+
+    // Wait a bit more to ensure fonts are loaded
+    await page.waitForTimeout(1000)
+
+    // Generate PDF with enhanced settings
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: false,
+      displayHeaderFooter: false,
+      margin: {
+        top: "20mm",
+        right: "20mm",
+        bottom: "20mm",
+        left: "20mm",
+      },
+      timeout: 30000,
+    })
+
+    await browser.close()
+
+    // Validate PDF buffer
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      throw new Error("Generated PDF is empty")
+    }
+
+    // Return PDF as response with proper headers
+    return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
-        "Content-Type": "text/html",
+        "Content-Type": "application/pdf",
+        "Content-Length": pdfBuffer.length.toString(),
+        "Content-Disposition": `attachment; filename="Contrato_${data.companyName.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf"`,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
       },
     })
   } catch (error) {
     console.error("Error generating contract:", error)
-    return NextResponse.json({ error: "Failed to generate contract" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to generate contract",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 
@@ -44,40 +108,46 @@ const getContractHTML = (data: ContractData): string => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contrato - ${data.companyName}</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman:wght@400;700&display=swap');
+        
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: 'Times New Roman', serif;
+            font-family: 'Times New Roman', 'Times', serif;
             font-size: 11pt;
-            line-height: 1.0;
+            line-height: 1.2;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background: white;
             color: black;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
         
         .contract-container {
-            max-width: 8.5in;
+            max-width: 210mm;
             margin: 0 auto;
             background: white;
-            padding: 40px;
+            padding: 20mm;
+            min-height: 297mm;
         }
         
         .center {
             text-align: center;
-            padding-top: 6pt;
-            padding-bottom: 8pt;
+            margin-bottom: 12pt;
         }
         
         .left {
             text-align: left;
-            padding-top: 6pt;
-            padding-bottom: 0pt;
+            margin-bottom: 12pt;
         }
         
         .section {
             margin-bottom: 12pt;
             text-align: justify;
-            padding-top: 6pt;
-            padding-bottom: 0pt;
+            text-justify: inter-word;
         }
         
         .numbered-section {
@@ -85,24 +155,24 @@ const getContractHTML = (data: ContractData): string => {
             padding-left: 17.5pt;
             margin-right: 2.4pt;
             text-align: justify;
-            padding-top: 6pt;
-            padding-bottom: 0pt;
+            text-justify: inter-word;
+            margin-bottom: 12pt;
         }
         
         .subsection {
             margin-left: 36pt;
             padding-left: 3.6pt;
             text-align: justify;
-            padding-top: 6pt;
-            padding-bottom: 0pt;
+            text-justify: inter-word;
+            margin-bottom: 12pt;
         }
         
         .sub-subsection {
             margin-left: 54pt;
             padding-left: 7.2pt;
             text-align: justify;
-            padding-top: 6pt;
-            padding-bottom: 0pt;
+            text-justify: inter-word;
+            margin-bottom: 12pt;
         }
         
         .bold {
@@ -122,35 +192,35 @@ const getContractHTML = (data: ContractData): string => {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
-            margin-left: 10.8pt;
-            margin-right: auto;
         }
         
         .signature-table td {
-            width: 233.8pt;
-            padding: 4pt;
+            width: 50%;
+            padding: 20pt 10pt;
             text-align: center;
             vertical-align: top;
             border: none;
-            height: 105.5pt;
         }
         
         .signature-line {
             border-top: 1px solid black;
-            margin-top: 40px;
-            margin-bottom: 10px;
+            margin: 40px auto 10px auto;
             width: 200px;
-            margin-left: auto;
-            margin-right: auto;
+        }
+        
+        @page {
+            size: A4;
+            margin: 20mm;
         }
         
         @media print {
             body {
-                padding: 0;
+                font-size: 11pt;
             }
             .contract-container {
                 max-width: none;
-                padding: 20px;
+                padding: 0;
+                margin: 0;
             }
         }
     </style>
@@ -476,7 +546,7 @@ const getContractHTML = (data: ContractData): string => {
             13.1.1. A el Custodio:
         </div>
 
-        <div style="padding-top: 6pt; text-indent: 36pt; padding-bottom: 8pt; text-align: left;">
+        <div style="margin-left: 72pt; text-align: left; margin-bottom: 12pt;">
             Correo Electrónico: alberto@galileo.finance.com
         </div>
 
@@ -548,7 +618,7 @@ const getContractHTML = (data: ContractData): string => {
             <table class="signature-table">
                 <tr>
                     <td>
-                        <div class="center">
+                        <div style="text-align: center;">
                             <div class="bold">P/ El Custodio</div>
                             <div class="bold">GIO CAPITAL GROUP SA</div>
                             <br><br><br><br>
@@ -557,7 +627,7 @@ const getContractHTML = (data: ContractData): string => {
                         </div>
                     </td>
                     <td>
-                        <div class="center">
+                        <div style="text-align: center;">
                             <div class="bold">P/ El Cliente</div>
                             <div class="bold">${data.companyName}</div>
                             <br><br><br><br>
