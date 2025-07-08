@@ -8,7 +8,9 @@ import { useActionState } from "react"
 import type { User } from "@/lib/users"
 import { UsageChart } from "@/components/usage-chart"
 import type { UsageStats } from "@/lib/users"
-import { Navigation } from "@/components/navigation"
+import { UnifiedLayout } from "@/components/unified-layout"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Plus, Edit, Trash2, Users } from "lucide-react"
 
 export default function AdminPanel() {
   const [users, setUsers] = useState<User[]>([])
@@ -47,67 +49,39 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      {/* Background effects */}
-      <div className="absolute inset-0 opacity-5">
-        <div
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: "50px 50px",
-          }}
-        ></div>
+    <UnifiedLayout title="Admin Panel" currentPage="admin">
+      {/* Usage Analytics */}
+      <div className="mb-8">
+        <UsageChart data={usageStats} />
       </div>
 
-      <div className="container mx-auto px-4 py-4 md:py-8 max-w-6xl relative z-10">
-        {/* Mobile-Optimized Header */}
-        <header className="mb-8">
-          {/* Top row - Logo and title */}
-          <div className="flex items-center gap-3 mb-4">
-            <img
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-xim7Sf7mjX1q0kZdL8yllT6RrzLWCl.png"
-              alt="GALILEO CAPITAL"
-              className="h-8 md:h-12 w-auto filter brightness-0 invert opacity-90"
-            />
-            <div>
-              <h1 className="text-xl md:text-3xl font-light">Admin Panel</h1>
-              <p className="text-slate-400 font-mono text-xs md:text-sm">USER MANAGEMENT</p>
-            </div>
-          </div>
+      {/* Add User Button */}
+      <div className="mb-6">
+        <Button
+          onClick={() => setShowAddUser(true)}
+          className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 hover:shadow-lg"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add New User
+        </Button>
+      </div>
 
-          {/* Bottom row - Navigation buttons */}
-          <div className="relative">
-            <Navigation currentPage="admin" isAdmin={true} />
-          </div>
-        </header>
-
-        {/* Mobile-Optimized Usage Analytics */}
-        <div className="mb-8">
-          <UsageChart data={usageStats} />
-        </div>
-
-        {/* Add User Button */}
-        <div className="mb-6">
-          <Button
-            onClick={() => setShowAddUser(true)}
-            className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-6 py-4 rounded-2xl font-mono text-sm md:text-base"
-          >
-            + ADD NEW USER
-          </Button>
-        </div>
-
-        {/* Mobile-Optimized Add User Form */}
-        {showAddUser && (
-          <div className="bg-slate-800/30 backdrop-blur-xl rounded-3xl p-6 md:p-8 mb-8 border border-slate-600/30">
-            <h2 className="text-xl md:text-2xl font-light mb-6 text-amber-400">Add New User</h2>
+      {/* Add User Form */}
+      {showAddUser && (
+        <Card className="bg-slate-800/30 backdrop-blur-xl border-slate-600/30 mb-8 hover:bg-slate-800/40 transition-all duration-300">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Plus className="h-5 w-5 text-emerald-400" />
+              Add New User
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <form action={addAction} className="space-y-4">
               <Input
                 name="username"
                 placeholder="Username"
                 required
-                className="w-full bg-slate-700/50 border-slate-600/50 text-white rounded-2xl p-4"
+                className="bg-slate-700/50 border-slate-600/50 text-white rounded-xl p-4 focus:border-amber-400/50 transition-all duration-300"
                 disabled={isAddPending}
               />
               <Input
@@ -115,7 +89,7 @@ export default function AdminPanel() {
                 type="email"
                 placeholder="Email"
                 required
-                className="w-full bg-slate-700/50 border-slate-600/50 text-white rounded-2xl p-4"
+                className="bg-slate-700/50 border-slate-600/50 text-white rounded-xl p-4 focus:border-amber-400/50 transition-all duration-300"
                 disabled={isAddPending}
               />
               <Input
@@ -123,91 +97,91 @@ export default function AdminPanel() {
                 type="password"
                 placeholder="Password"
                 required
-                className="w-full bg-slate-700/50 border-slate-600/50 text-white rounded-2xl p-4"
+                className="bg-slate-700/50 border-slate-600/50 text-white rounded-xl p-4 focus:border-amber-400/50 transition-all duration-300"
                 disabled={isAddPending}
               />
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button
                   type="submit"
                   disabled={isAddPending}
-                  className="flex-1 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-900 px-6 py-4 rounded-2xl font-mono"
+                  className="flex-1 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-900 px-6 py-3 rounded-xl font-medium transition-all duration-300"
                 >
-                  {isAddPending ? "ADDING..." : "ADD USER"}
+                  {isAddPending ? "Adding..." : "Add User"}
                 </Button>
                 <Button
                   type="button"
                   onClick={() => setShowAddUser(false)}
-                  className="flex-1 bg-slate-700/50 hover:bg-slate-700/70 text-white px-6 py-4 rounded-2xl font-mono"
+                  className="flex-1 bg-slate-700/50 hover:bg-slate-700/70 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300"
                 >
-                  CANCEL
+                  Cancel
                 </Button>
               </div>
             </form>
             {addState?.error && (
-              <div className="mt-4 bg-red-900/30 border border-red-600/30 rounded-2xl p-4">
+              <div className="mt-4 bg-red-900/30 border border-red-600/30 rounded-xl p-4">
                 <p className="text-red-400 text-sm">{addState.error}</p>
               </div>
             )}
-          </div>
-        )}
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Mobile-Optimized Users List */}
-        <div className="bg-slate-800/30 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-slate-600/30">
-          <h2 className="text-xl md:text-2xl font-light mb-6 text-amber-400">Current Users ({users.length})</h2>
-
+      {/* Users List */}
+      <Card className="bg-slate-800/30 backdrop-blur-xl border-slate-600/30 hover:bg-slate-800/40 transition-all duration-300">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Users className="h-5 w-5 text-amber-400" />
+            Current Users ({users.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           {users.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
-              <svg
-                className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 opacity-50"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-base md:text-lg font-mono">No users found</p>
+              <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium">No users found</p>
             </div>
           ) : (
             <div className="space-y-4">
               {users.map((user) => (
-                <div key={user.id} className="bg-slate-700/30 rounded-2xl p-4 md:p-6 border border-slate-600/20">
-                  {/* Mobile-first user card layout */}
+                <div
+                  key={user.id}
+                  className="bg-slate-700/30 rounded-xl p-4 sm:p-6 border border-slate-600/20 hover:bg-slate-700/40 transition-all duration-300"
+                >
                   <div className="space-y-4">
                     {/* User info */}
                     <div>
-                      <h3 className="text-lg md:text-xl font-semibold text-white mb-1">{user.username}</h3>
+                      <h3 className="text-lg sm:text-xl font-semibold text-white mb-1">{user.username}</h3>
                       <p className="text-amber-400 font-mono text-sm break-all">{user.email}</p>
-                      <p className="text-slate-400 text-xs md:text-sm font-mono mt-1">
-                        Created: {new Date(user.createdAt).toLocaleDateString()}
-                      </p>
-                      {user.lastLogin && (
-                        <p className="text-slate-400 text-xs md:text-sm font-mono">
-                          Last login: {new Date(user.lastLogin).toLocaleDateString()}
-                        </p>
-                      )}
-                      <p className="text-slate-400 text-xs md:text-sm font-mono">Login count: {user.loginCount}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-xs sm:text-sm text-slate-400 font-mono">
+                        <span>Created: {new Date(user.createdAt).toLocaleDateString()}</span>
+                        {user.lastLogin && <span>Last login: {new Date(user.lastLogin).toLocaleDateString()}</span>}
+                        <span>Login count: {user.loginCount}</span>
+                      </div>
                     </div>
 
                     {/* Action buttons */}
                     <div className="flex flex-col sm:flex-row gap-3">
                       <Button
                         onClick={() => setEditingUser(user)}
-                        className="flex-1 bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 px-4 py-3 rounded-xl font-mono text-sm"
+                        className="flex-1 bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 px-4 py-3 rounded-xl font-medium transition-all duration-300"
                       >
-                        EDIT USER
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit User
                       </Button>
                       <form action={deleteAction} className="flex-1">
                         <input type="hidden" name="userId" value={user.id} />
                         <Button
                           type="submit"
                           disabled={isDeletePending}
-                          className="w-full bg-red-900/30 hover:bg-red-900/50 text-red-400 px-4 py-3 rounded-xl font-mono text-sm"
+                          className="w-full bg-red-900/30 hover:bg-red-900/50 text-red-400 px-4 py-3 rounded-xl font-medium transition-all duration-300"
                           onClick={(e) => {
                             if (!confirm(`Delete user "${user.username}"?`)) {
                               e.preventDefault()
                             }
                           }}
                         >
-                          {isDeletePending ? "DELETING..." : "DELETE USER"}
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          {isDeletePending ? "Deleting..." : "Delete User"}
                         </Button>
                       </form>
                     </div>
@@ -216,13 +190,20 @@ export default function AdminPanel() {
               ))}
             </div>
           )}
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Mobile-Optimized Edit User Modal */}
-        {editingUser && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800/90 backdrop-blur-xl rounded-3xl p-6 md:p-8 w-full max-w-md border border-slate-600/30">
-              <h2 className="text-xl md:text-2xl font-light mb-6 text-amber-400">Edit User</h2>
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="bg-slate-800/90 backdrop-blur-xl border-slate-600/30 w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Edit className="h-5 w-5 text-blue-400" />
+                Edit User
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <form action={updateAction} className="space-y-4">
                 <input type="hidden" name="userId" value={editingUser.id} />
                 <Input
@@ -230,7 +211,7 @@ export default function AdminPanel() {
                   defaultValue={editingUser.username}
                   placeholder="Username"
                   required
-                  className="w-full bg-slate-700/50 border-slate-600/50 text-white rounded-2xl p-4"
+                  className="bg-slate-700/50 border-slate-600/50 text-white rounded-xl p-4 focus:border-amber-400/50 transition-all duration-300"
                   disabled={isUpdatePending}
                 />
                 <Input
@@ -239,42 +220,43 @@ export default function AdminPanel() {
                   defaultValue={editingUser.email}
                   placeholder="Email"
                   required
-                  className="w-full bg-slate-700/50 border-slate-600/50 text-white rounded-2xl p-4"
+                  className="bg-slate-700/50 border-slate-600/50 text-white rounded-xl p-4 focus:border-amber-400/50 transition-all duration-300"
                   disabled={isUpdatePending}
                 />
                 <Input
                   name="password"
                   type="password"
                   placeholder="New Password (leave blank to keep current)"
-                  className="w-full bg-slate-700/50 border-slate-600/50 text-white rounded-2xl p-4"
+                  className="bg-slate-700/50 border-slate-600/50 text-white rounded-xl p-4 focus:border-amber-400/50 transition-all duration-300"
                   disabled={isUpdatePending}
                 />
                 <div className="flex flex-col gap-4">
                   <Button
                     type="submit"
                     disabled={isUpdatePending}
-                    className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-900 py-4 rounded-2xl font-mono"
+                    className="bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-900 py-3 rounded-xl font-medium transition-all duration-300"
                   >
-                    {isUpdatePending ? "UPDATING..." : "UPDATE USER"}
+                    {isUpdatePending ? "Updating..." : "Update User"}
                   </Button>
                   <Button
                     type="button"
                     onClick={() => setEditingUser(null)}
-                    className="w-full bg-slate-700/50 hover:bg-slate-700/70 text-white py-4 rounded-2xl font-mono"
+                    className="bg-slate-700/50 hover:bg-slate-700/70 text-white py-3 rounded-xl font-medium transition-all duration-300"
                   >
-                    CANCEL
+                    Cancel
                   </Button>
                 </div>
               </form>
               {updateState?.error && (
-                <div className="mt-4 bg-red-900/30 border border-red-600/30 rounded-2xl p-4">
+                <div className="mt-4 bg-red-900/30 border border-red-600/30 rounded-xl p-4">
                   <p className="text-red-400 text-sm">{updateState.error}</p>
                 </div>
               )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </UnifiedLayout>
   )
 }
+
