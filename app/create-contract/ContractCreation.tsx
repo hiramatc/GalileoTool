@@ -31,7 +31,6 @@ export default function ContractCreation() {
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [contractGenerated, setContractGenerated] = useState(false)
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
 
   const handleInputChange = (field: keyof ContractData, value: string) => {
     setFormData((prev) => ({
@@ -74,9 +73,24 @@ export default function ContractCreation() {
         throw new Error("Failed to generate contract")
       }
 
-      const blob = await response.blob()
+      // Get the HTML content
+      const htmlContent = await response.text()
+
+      // Create a blob and download it as HTML file
+      const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" })
       const url = URL.createObjectURL(blob)
-      setPdfUrl(url)
+
+      // Create download link
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `Contrato_${formData.companyName.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.html`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      // Clean up the blob URL
+      URL.revokeObjectURL(url)
+
       setContractGenerated(true)
     } catch (error) {
       console.error("Error generating contract:", error)
@@ -86,15 +100,9 @@ export default function ContractCreation() {
     }
   }
 
-  const downloadContract = () => {
-    if (pdfUrl) {
-      const link = document.createElement("a")
-      link.href = pdfUrl
-      link.download = `Custody_Transfer_Contract_${formData.companyName.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    }
+  const downloadContractAgain = async () => {
+    // Re-generate and download the contract
+    await generateContract()
   }
 
   return (
@@ -239,7 +247,7 @@ export default function ContractCreation() {
             ) : (
               <>
                 <Eye className="h-5 w-5 mr-2" />
-                Generate & Preview Contract
+                Generate & Download Contract
               </>
             )}
           </Button>
@@ -262,23 +270,113 @@ export default function ContractCreation() {
           </CardContent>
         </Card>
 
-        {/* Download Section */}
-        {contractGenerated && pdfUrl && (
+        {/* Instructions Card */}
+        <Card className="bg-purple-900/20 backdrop-blur-xl border-purple-600/30">
+          <CardHeader>
+            <CardTitle className="text-purple-400 text-lg">📋 How to Use the Downloaded Contract</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-gray-300 space-y-4">
+              <div>
+                <p className="font-medium mb-2">Option 1: Use as HTML Document</p>
+                <ul className="list-disc list-inside space-y-1 ml-4 text-sm">
+                  <li>Open the downloaded HTML file in any web browser</li>
+                  <li>The contract will display with professional formatting</li>
+                  <li>You can share this file or store it digitally</li>
+                </ul>
+              </div>
+
+              <div>
+                <p className="font-medium mb-2">Option 2: Convert to PDF</p>
+                <ol className="list-decimal list-inside space-y-1 ml-4 text-sm">
+                  <li>Open the downloaded HTML file in your web browser</li>
+                  <li>
+                    Press <strong>Ctrl+P</strong> (Windows) or <strong>Cmd+P</strong> (Mac) to print
+                  </li>
+                  <li>
+                    In the print dialog, select <strong>"Save as PDF"</strong> as destination
+                  </li>
+                  <li>
+                    Choose your preferred location and click <strong>"Save"</strong>
+                  </li>
+                </ol>
+              </div>
+
+              <div className="bg-slate-700/30 p-3 rounded-lg">
+                <p className="text-xs text-slate-300">
+                  <strong>💡 Tip:</strong> The HTML file contains all the contract content with print-optimized styling.
+                  When you print it as PDF, it will maintain professional formatting and proper page breaks without
+                  browser headers/footers.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Success Section */}
+        {contractGenerated && (
           <Card className="bg-green-900/20 backdrop-blur-xl border-green-600/30">
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
-                <div className="text-green-400 text-lg font-semibold">Contract Generated Successfully!</div>
+                <div className="text-green-400 text-lg font-semibold">Contract Downloaded Successfully!</div>
+                <p className="text-gray-300 text-sm">
+                  The HTML contract file has been downloaded to your computer. You can open it in any browser and use
+                  the instructions below to convert it to PDF if needed.
+                </p>
                 <Button
-                  onClick={downloadContract}
+                  onClick={downloadContractAgain}
                   className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl transition-all duration-300"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download Contract PDF
+                  Download Contract Again
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
+
+        {/* Instructions Card */}
+        <Card className="bg-purple-900/20 backdrop-blur-xl border-purple-600/30">
+          <CardHeader>
+            <CardTitle className="text-purple-400 text-lg">📋 How to Use the Downloaded Contract</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-gray-300 space-y-4">
+              <div>
+                <p className="font-medium mb-2">Option 1: Use as HTML Document</p>
+                <ul className="list-disc list-inside space-y-1 ml-4 text-sm">
+                  <li>Open the downloaded HTML file in any web browser</li>
+                  <li>The contract will display with professional formatting</li>
+                  <li>You can share this file or store it digitally</li>
+                </ul>
+              </div>
+
+              <div>
+                <p className="font-medium mb-2">Option 2: Convert to PDF</p>
+                <ol className="list-decimal list-inside space-y-1 ml-4 text-sm">
+                  <li>Open the downloaded HTML file in your web browser</li>
+                  <li>
+                    Click the "Guardar como PDF" button or press <strong>Ctrl+P</strong> (Windows) or{" "}
+                    <strong>Cmd+P</strong> (Mac)
+                  </li>
+                  <li>
+                    In the print dialog, select <strong>"Save as PDF"</strong> as destination
+                  </li>
+                  <li>
+                    Choose your preferred location and click <strong>"Save"</strong>
+                  </li>
+                </ol>
+              </div>
+
+              <div className="bg-slate-700/30 p-3 rounded-lg">
+                <p className="text-xs text-slate-300">
+                  <strong>💡 Tip:</strong> The HTML file contains all the contract content with print-optimized styling.
+                  When you print it as PDF, it will maintain professional formatting and proper page breaks.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
