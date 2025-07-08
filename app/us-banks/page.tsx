@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Download, Search, Filter, AlertCircle } from "lucide-react"
-import { Navigation } from "@/components/navigation"
+import { RefreshCw, Download, Search, Filter, AlertCircle, TrendingUp, DollarSign, Calendar } from "lucide-react"
+import { UnifiedLayout } from "@/components/unified-layout"
 
 interface Transaction {
   date: string
@@ -45,7 +45,6 @@ export default function USBanksDashboard() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
-  const [isAdmin, setIsAdmin] = useState(false)
   const [refreshError, setRefreshError] = useState<string | null>(null)
 
   // Filter states
@@ -89,22 +88,6 @@ export default function USBanksDashboard() {
   ]
 
   const years = ["2023", "2024", "2025", "2026"]
-
-  // Check if user is admin
-  useEffect(() => {
-    const checkUserRole = async () => {
-      try {
-        const response = await fetch("/api/current-user")
-        if (response.ok) {
-          const userData = await response.json()
-          setIsAdmin(userData.isAdmin || false)
-        }
-      } catch (error) {
-        console.error("Error checking user role:", error)
-      }
-    }
-    checkUserRole()
-  }, [])
 
   // Fetch existing banking data
   const fetchExistingData = async () => {
@@ -327,394 +310,363 @@ export default function USBanksDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="flex items-center justify-center min-h-screen">
+      <UnifiedLayout title="US Banks Dashboard" currentPage="us-banks">
+        <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-white text-xl">Loading banking data...</div>
         </div>
-      </div>
+      </UnifiedLayout>
     )
   }
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
-          <header className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <img
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-xim7Sf7mjX1q0kZdL8yllT6RrzLWCl.png"
-                alt="GALILEO CAPITAL"
-                className="h-8 md:h-12 w-auto filter brightness-0 invert opacity-90"
-              />
-              <div>
-                <h1 className="text-xl md:text-3xl font-light text-white">US Banks Dashboard</h1>
-                <p className="text-slate-400 font-mono text-xs md:text-sm">REAL-TIME BANKING DATA</p>
+      <UnifiedLayout title="US Banks Dashboard" currentPage="us-banks">
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+          <div className="text-6xl mb-4">🏦</div>
+          <h2 className="text-2xl font-semibold mb-4 text-white">No Banking Data Available Yet</h2>
+          <p className="text-gray-300 mb-6 max-w-md">
+            Your n8n workflow hasn't sent any data to the webhook yet. Make sure your automation is running and sending
+            data to the correct endpoint.
+          </p>
+
+          {refreshError && (
+            <div className="mb-4 p-3 bg-red-900/20 border border-red-600/30 rounded-lg max-w-md">
+              <div className="flex items-center gap-2 text-red-400 text-sm">
+                <AlertCircle className="h-4 w-4" />
+                <span>Error: {refreshError}</span>
               </div>
             </div>
-            <div className="relative">
-              <Navigation currentPage="us-banks" isAdmin={isAdmin} />
-            </div>
-          </header>
+          )}
 
-          <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-            <div className="text-6xl mb-4">🏦</div>
-            <h2 className="text-2xl font-semibold mb-4 text-white">No Banking Data Available Yet</h2>
-            <p className="text-gray-300 mb-6 max-w-md">
-              Your n8n workflow hasn't sent any data to the webhook yet. Make sure your automation is running and
-              sending data to the correct endpoint.
-            </p>
-
-            {refreshError && (
-              <div className="mb-4 p-3 bg-red-900/20 border border-red-600/30 rounded-lg max-w-md">
-                <div className="flex items-center gap-2 text-red-400 text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Error: {refreshError}</span>
-                </div>
-              </div>
-            )}
-
-            <Button onClick={refreshData} className="bg-blue-600 hover:bg-blue-700" disabled={refreshing}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Refreshing..." : "Refresh Data"}
-            </Button>
-          </div>
+          <Button onClick={refreshData} className="bg-blue-600 hover:bg-blue-700" disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh Data"}
+          </Button>
         </div>
-      </div>
+      </UnifiedLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="absolute inset-0 opacity-5">
-        <div
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: "50px 50px",
-          }}
-        ></div>
-      </div>
-
-      <div className="relative z-10 container mx-auto px-4 py-8">
-        <header className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <img
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-xim7Sf7mjX1q0kZdL8yllT6RrzLWCl.png"
-              alt="GALILEO CAPITAL"
-              className="h-8 md:h-12 w-auto filter brightness-0 invert opacity-90"
-            />
-            <div>
-              <h1 className="text-xl md:text-3xl font-light text-white">US Banks Dashboard</h1>
-              <p className="text-slate-400 font-mono text-xs md:text-sm">REAL-TIME BANKING DATA</p>
-            </div>
-          </div>
-          <div className="relative">
-            <Navigation currentPage="us-banks" isAdmin={isAdmin} />
-          </div>
-        </header>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-white text-sm font-medium">Total Transactions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{data.totalTransactions}</div>
-              <p className="text-xs text-gray-300 mt-1">{data.month}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-white text-sm font-medium">Today's Transactions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{data.todayTransactionCount}</div>
-              <p className="text-xs text-gray-300 mt-1">Today</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-white text-sm font-medium">Month Total</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">
-                ${data.monthTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-              </div>
-              <p className="text-xs text-gray-300 mt-1">This month</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Account Summary */}
-        <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-8">
-          <CardHeader>
-            <CardTitle className="text-white">Bank Account Totals</CardTitle>
-            <CardDescription className="text-gray-300">Active accounts with balances</CardDescription>
+    <UnifiedLayout title="US Banks Dashboard" currentPage="us-banks">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-600/30 hover:bg-slate-800/40 transition-all duration-300">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-white text-sm font-medium flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-blue-400" />
+              Total Transactions
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {Object.entries(data.accountSummary || {})
-                .filter(([key, account]) => {
-                  const hideAccounts = ["Chase-Felade", "PNC-WC", "Chase-WC"]
-                  return account.count > 0 && !account.bank.includes("Relay") && !hideAccounts.includes(key)
-                })
-                .sort(([, a], [, b]) => b.total - a.total)
-                .map(([key, account]) => (
-                  <div key={key} className="bg-white/5 rounded-lg p-4 border border-white/10">
-                    <div className="text-sm font-medium text-gray-300">{account.bank}</div>
-                    <div className="text-lg font-semibold text-white">{account.account}</div>
-                    <div className={`text-xl font-bold ${account.total >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      ${account.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-xs text-gray-400">{account.count} transactions</div>
+            <div className="text-2xl font-bold text-white">{data.totalTransactions}</div>
+            <p className="text-xs text-gray-300 mt-1">{data.month}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-600/30 hover:bg-slate-800/40 transition-all duration-300">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-white text-sm font-medium flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-green-400" />
+              Today's Transactions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{data.todayTransactionCount}</div>
+            <p className="text-xs text-gray-300 mt-1">Today</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-600/30 hover:bg-slate-800/40 transition-all duration-300">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-white text-sm font-medium flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-amber-400" />
+              Month Total
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">
+              ${data.monthTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-gray-300 mt-1">This month</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Account Summary */}
+      <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-600/30 mb-6 sm:mb-8 hover:bg-slate-800/40 transition-all duration-300">
+        <CardHeader>
+          <CardTitle className="text-white">Bank Account Totals</CardTitle>
+          <CardDescription className="text-gray-300">Active accounts with balances</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Object.entries(data.accountSummary || {})
+              .filter(([key, account]) => {
+                const hideAccounts = ["Chase-Felade", "PNC-WC", "Chase-WC"]
+                return account.count > 0 && !account.bank.includes("Relay") && !hideAccounts.includes(key)
+              })
+              .sort(([, a], [, b]) => b.total - a.total)
+              .map(([key, account]) => (
+                <div
+                  key={key}
+                  className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/20 hover:bg-slate-700/40 transition-all duration-300"
+                >
+                  <div className="text-sm font-medium text-gray-300">{account.bank}</div>
+                  <div className="text-lg font-semibold text-white">{account.account}</div>
+                  <div className={`text-xl font-bold ${account.total >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    ${account.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Filters and Controls */}
-        <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-6">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filters & Controls
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Search</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search transactions..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-gray-400"
-                  />
+                  <div className="text-xs text-gray-400">{account.count} transactions</div>
                 </div>
-              </div>
+              ))}
+          </div>
+        </CardContent>
+      </Card>
 
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Bank</label>
-                <Select value={selectedBank} onValueChange={setSelectedBank}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="All Banks" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Banks</SelectItem>
-                    {allBanks.map((bank) => (
-                      <SelectItem key={bank} value={bank}>
-                        {bank}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Account</label>
-                <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="All Accounts" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Accounts</SelectItem>
-                    {allAccounts.map((account) => (
-                      <SelectItem key={account} value={account}>
-                        {account}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Category</label>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {allCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Amount</label>
-                <Select value={amountFilter} onValueChange={setAmountFilter}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="All Amounts" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Amounts</SelectItem>
-                    <SelectItem value="positive">Positive</SelectItem>
-                    <SelectItem value="negative">Negative</SelectItem>
-                    <SelectItem value="large">≥ $1,000</SelectItem>
-                    <SelectItem value="small">{"< $1,000"}</SelectItem>
-                    <SelectItem value="over10k">≥ $10,000</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Date Range</label>
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="All Dates" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Dates</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">Last 7 Days</SelectItem>
-                    <SelectItem value="last15days">Last 15 Days</SelectItem>
-                    <SelectItem value="month">Last 30 Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Month</label>
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="All Months" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Months</SelectItem>
-                    {months.map((month) => (
-                      <SelectItem key={month} value={month}>
-                        {month}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-300 mb-2 block">Year</label>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="All Years" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Years</SelectItem>
-                    {years.map((year) => (
-                      <SelectItem key={year} value={year}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+      {/* Filters and Controls */}
+      <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-600/30 mb-6 hover:bg-slate-800/40 transition-all duration-300">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filters & Controls
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">Search</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search transactions..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-slate-700/50 border-slate-600/50 text-white placeholder:text-gray-400 focus:border-amber-400/50 transition-all duration-300"
+                />
               </div>
             </div>
 
-            {refreshError && (
-              <div className="mb-4 p-3 bg-red-900/20 border border-red-600/30 rounded-lg">
-                <div className="flex items-center gap-2 text-red-400 text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Refresh Error: {refreshError}</span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <Button
-                onClick={clearFilters}
-                variant="outline"
-                className="border-white/20 text-white hover:bg-white/10 bg-transparent"
-              >
-                Clear Filters
-              </Button>
-              <Button onClick={refreshData} className="bg-blue-600 hover:bg-blue-700" disabled={refreshing}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-                {refreshing ? "Refreshing..." : "Refresh Data"}
-              </Button>
-              <Button onClick={exportData} className="bg-green-600 hover:bg-green-700">
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">Bank</label>
+              <Select value={selectedBank} onValueChange={setSelectedBank}>
+                <SelectTrigger className="bg-slate-700/50 border-slate-600/50 text-white focus:border-amber-400/50 transition-all duration-300">
+                  <SelectValue placeholder="All Banks" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="all">All Banks</SelectItem>
+                  {allBanks.map((bank) => (
+                    <SelectItem key={bank} value={bank}>
+                      {bank}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Transactions Table */}
-        <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-          <CardHeader>
-            <CardTitle className="text-white">
-              Transactions ({filteredTransactions.length} of {data.totalTransactions})
-            </CardTitle>
-            <CardDescription className="text-gray-300">
-              Last updated: {new Date(data.updateTime).toLocaleString()}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-white/20">
-                    <TableHead className="text-gray-300">Date</TableHead>
-                    <TableHead className="text-gray-300">Bank</TableHead>
-                    <TableHead className="text-gray-300">Account</TableHead>
-                    <TableHead className="text-gray-300">Category</TableHead>
-                    <TableHead className="text-gray-300 text-right">Amount</TableHead>
-                    <TableHead className="text-gray-300">Detail</TableHead>
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">Account</label>
+              <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+                <SelectTrigger className="bg-slate-700/50 border-slate-600/50 text-white focus:border-amber-400/50 transition-all duration-300">
+                  <SelectValue placeholder="All Accounts" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="all">All Accounts</SelectItem>
+                  {allAccounts.map((account) => (
+                    <SelectItem key={account} value={account}>
+                      {account}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">Category</label>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="bg-slate-700/50 border-slate-600/50 text-white focus:border-amber-400/50 transition-all duration-300">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {allCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">Amount</label>
+              <Select value={amountFilter} onValueChange={setAmountFilter}>
+                <SelectTrigger className="bg-slate-700/50 border-slate-600/50 text-white focus:border-amber-400/50 transition-all duration-300">
+                  <SelectValue placeholder="All Amounts" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="all">All Amounts</SelectItem>
+                  <SelectItem value="positive">Positive</SelectItem>
+                  <SelectItem value="negative">Negative</SelectItem>
+                  <SelectItem value="large">≥ $1,000</SelectItem>
+                  <SelectItem value="small">{"< $1,000"}</SelectItem>
+                  <SelectItem value="over10k">≥ $10,000</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">Date Range</label>
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="bg-slate-700/50 border-slate-600/50 text-white focus:border-amber-400/50 transition-all duration-300">
+                  <SelectValue placeholder="All Dates" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="all">All Dates</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">Last 7 Days</SelectItem>
+                  <SelectItem value="last15days">Last 15 Days</SelectItem>
+                  <SelectItem value="month">Last 30 Days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">Month</label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="bg-slate-700/50 border-slate-600/50 text-white focus:border-amber-400/50 transition-all duration-300">
+                  <SelectValue placeholder="All Months" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="all">All Months</SelectItem>
+                  {months.map((month) => (
+                    <SelectItem key={month} value={month}>
+                      {month}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">Year</label>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger className="bg-slate-700/50 border-slate-600/50 text-white focus:border-amber-400/50 transition-all duration-300">
+                  <SelectValue placeholder="All Years" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="all">All Years</SelectItem>
+                  {years.map((year) => (
+                    <SelectItem key={year} value={year}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {refreshError && (
+            <div className="mb-4 p-3 bg-red-900/20 border border-red-600/30 rounded-lg">
+              <div className="flex items-center gap-2 text-red-400 text-sm">
+                <AlertCircle className="h-4 w-4" />
+                <span>Refresh Error: {refreshError}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={clearFilters}
+              variant="outline"
+              className="border-slate-600/50 text-white hover:bg-slate-700/50 bg-transparent transition-all duration-300"
+            >
+              Clear Filters
+            </Button>
+            <Button
+              onClick={refreshData}
+              className="bg-blue-600 hover:bg-blue-700 transition-all duration-300"
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing..." : "Refresh Data"}
+            </Button>
+            <Button onClick={exportData} className="bg-green-600 hover:bg-green-700 transition-all duration-300">
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Transactions Table */}
+      <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-600/30 hover:bg-slate-800/40 transition-all duration-300">
+        <CardHeader>
+          <CardTitle className="text-white">
+            Transactions ({filteredTransactions.length} of {data.totalTransactions})
+          </CardTitle>
+          <CardDescription className="text-gray-300">
+            Last updated: {new Date(data.updateTime).toLocaleString()}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-600/30">
+                  <TableHead className="text-gray-300">Date</TableHead>
+                  <TableHead className="text-gray-300">Bank</TableHead>
+                  <TableHead className="text-gray-300">Account</TableHead>
+                  <TableHead className="text-gray-300">Category</TableHead>
+                  <TableHead className="text-gray-300 text-right">Amount</TableHead>
+                  <TableHead className="text-gray-300">Detail</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTransactions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-gray-400 py-8">
+                      No transactions match your current filters
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTransactions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-gray-400 py-8">
-                        No transactions match your current filters
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredTransactions.map((transaction, index) => (
-                      <TableRow key={index} className="border-white/10">
-                        <TableCell className="text-white">
-                          {transaction.isToday && (
-                            <Badge variant="secondary" className="mr-2 bg-blue-600">
-                              Today
-                            </Badge>
-                          )}
-                          {transaction.date}
-                        </TableCell>
-                        <TableCell className="text-white">{transaction.bank}</TableCell>
-                        <TableCell className="text-white">{transaction.account}</TableCell>
-                        <TableCell className="text-white">
-                          <Badge variant="outline" className="border-white/20 text-white">
-                            {transaction.category}
+                ) : (
+                  filteredTransactions.map((transaction, index) => (
+                    <TableRow
+                      key={index}
+                      className="border-slate-600/20 hover:bg-slate-700/20 transition-colors duration-200"
+                    >
+                      <TableCell className="text-white">
+                        {transaction.isToday && (
+                          <Badge variant="secondary" className="mr-2 bg-blue-600">
+                            Today
                           </Badge>
-                        </TableCell>
-                        <TableCell
-                          className={`text-right font-medium ${
-                            transaction.amount >= 0 ? "text-green-400" : "text-red-400"
-                          }`}
-                        >
-                          ${transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-gray-300 max-w-xs truncate">{transaction.detail}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+                        )}
+                        {transaction.date}
+                      </TableCell>
+                      <TableCell className="text-white">{transaction.bank}</TableCell>
+                      <TableCell className="text-white">{transaction.account}</TableCell>
+                      <TableCell className="text-white">
+                        <Badge variant="outline" className="border-slate-600/50 text-white">
+                          {transaction.category}
+                        </Badge>
+                      </TableCell>
+                      <TableCell
+                        className={`text-right font-medium ${
+                          transaction.amount >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        ${transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="text-gray-300 max-w-xs truncate">{transaction.detail}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </UnifiedLayout>
   )
 }
 
